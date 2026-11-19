@@ -12,6 +12,7 @@ secrets.txt
 login_prefs.json
 gc_app.log
 *.log
+gc_app_debug.txt
 
 # --- builds e instaladores -------------------------------
 dist/
