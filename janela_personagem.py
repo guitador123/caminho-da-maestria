@@ -147,6 +147,18 @@ class JanelaPersonagem(ctk.CTkToplevel):
                 return coluna
         return None
 
+    def _coluna_semanal(self, chave):
+        """Coluna da dungeon SEMANAL (a Torre tem outro nome no banco)."""
+        df = self.app.dfs.get(ABA_SEMANAIS)
+        coluna = self._coluna_no_df(df, chave)
+        if coluna:
+            return coluna
+        from opcoes import mesmo_dado
+        for coluna_df in (df.columns if df is not None else ()):
+            if mesmo_dado(coluna_df, chave):
+                return coluna_df
+        return None
+
     def _valor(self, linha, chave, padrao=None):
         """Valor de um campo da linha do personagem.
 
@@ -172,11 +184,15 @@ class JanelaPersonagem(ctk.CTkToplevel):
         achada = df[df["Nome"].astype(str) == str(self.nome)]
         if achada.empty:
             return {}
-        from opcoes import coluna_banco
+        from opcoes import coluna_banco, chave_semanal
         linha = achada.iloc[0].to_dict()
         saida = {}
         for coluna, valor in linha.items():
-            saida[coluna_banco(coluna)] = valor
+            chave = coluna_banco(coluna)
+            if aba == ABA_SEMANAIS:
+                # a Torre semanal entra com a chave do app
+                chave = chave_semanal(chave)
+            saida[chave] = valor
         return saida
 
     # ------------------------------------------------------------- UI ------
@@ -264,7 +280,7 @@ class JanelaPersonagem(ctk.CTkToplevel):
             caixa.configure(command=self._propagar)
             caixa.grid(row=indice // 4, column=indice % 4, sticky="w",
                        padx=10, pady=4)
-            real = self._coluna_no_df(self.app.dfs.get(ABA_SEMANAIS), chave)
+            real = self._coluna_semanal(chave)
             self._linhas[("semanal", real or chave)] = caixa
 
         # --- botoes ---

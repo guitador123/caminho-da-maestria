@@ -50,11 +50,48 @@ def normalizar(texto):
     return re.sub(r"[^a-z0-9]+", "", s)
 
 
+# A Torre das Ilusoes SEMANAL aparece com DOIS nomes:
+#   "torre_das_ilusoes"          (como o app e a planilha chamam)
+#   "torre_das_ilusoes_semanal"  (como esta no banco, em user_semanais)
+# A Torre MENSAL (que fica na aba Geral, com o "30 / 30") e so a primeira.
+ALIAS_TORRE_SEMANAL = {
+    "torredasilusoes": "torredasilusoesemanal",
+    "torredasilusoesemanal": "torredasilusoes",
+}
+
+CHAVE_TORRE_SEMANAL = "torredasilusoes"
+
+
 def coluna_banco(chave):
     """Nome (do banco OU cabeçalho da planilha) -> chave normalizada da coluna."""
     base = ALIAS_EXATA.get(str(chave).strip(), chave)
     base = ALIASES.get(normalizar(base), base)
     return normalizar(base)
+
+
+def mesmo_dado(chave_a, chave_b):
+    """As duas chaves apontam para o mesmo dado?
+
+    Serve para a Torre das Ilusoes SEMANAL, que tem dois nomes (no app e
+    no banco) - sem isso o app nunca encontrava a coluna dela.
+    """
+    a = coluna_banco(chave_a)
+    b = coluna_banco(chave_b)
+    if a == b:
+        return True
+    return ALIAS_TORRE_SEMANAL.get(a) == b
+
+
+def chave_semanal(chave):
+    """A chave da dungeon SEMANAL como o app espera.
+
+    A Torre do banco ("torre_das_ilusoes_semanal") vira
+    "torredasilusoes", que e a chave usada pelos cards e pelos filtros.
+    """
+    base = coluna_banco(chave)
+    if base == "torredasilusoesemanal":
+        return CHAVE_TORRE_SEMANAL
+    return base
 
 
 def canonizar_aba(nome):

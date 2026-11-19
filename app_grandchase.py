@@ -35,7 +35,7 @@ from supabase_db import get_supabase, carregar_personagens, upsert_personagem, \
     carregar_pecas_void, upsert_peca_void, carregar_acessorios_titulo, \
     upsert_acessorio, carregar_semanais, upsert_semanal, exportar_para_excel, \
     garantir_estrutura, colunas_salvaveis, salvar_conta, COLUNAS
-from opcoes import obter_opcoes, coluna_banco, canonizar_aba, normalizar
+from opcoes import obter_opcoes, coluna_banco, canonizar_aba, normalizar, chave_semanal
 import tema_visual as tv
 import caminhos
 from card_personagem import (CardPersonagem, LARGURA as CARD_LARGURA,
@@ -58,11 +58,15 @@ MOSTRAR_IMPORTACAO = False
 
 # ------------------------------------------------------------ filtros ----
 # (chave, rotulo) de cada opcao dos filtros
+# ⚠ as chaves aqui tem que ser IGUAIS as de card_personagem.DUNGEONS
+# (normalizadas: sem acento, sem espaco e sem underscore). Com o
+# underscore a opcao nunca era encontrada nos dados e o filtro nao
+# filtrava nada.
 FILTRO_MAZMORRAS = [
     ("void123", "Vazio 1, 2 e 3"),
     ("void4", "Vazio 4"),
-    ("caminho_abissal", "Caminho Abissal"),
-    ("torre_das_ilusoes", "Torre das Ilusões"),
+    ("caminhoabissal", "Caminho Abissal"),
+    ("torredasilusoes", "Torre das Ilusões"),
 ]
 FILTRO_VOID = [
     ("vazio_uni", "Vazio Unificado"),
@@ -425,7 +429,8 @@ class GrandChaseApp(ctk.CTk):
                       if k not in ("Nome", "id", "character_id")},
             "acessorios": {coluna_banco(k): v for k, v in linha_acess.items()
                            if k not in ("Nome", "id", "character_id")},
-            "semanais": {coluna_banco(k): v for k, v in linha_sem.items()
+            # a Torre semanal entra com a chave do app ("torredasilusoes")
+            "semanais": {chave_semanal(k): v for k, v in linha_sem.items()
                          if k not in ("Nome", "id", "character_id")},
         }
 
@@ -1567,7 +1572,7 @@ class GrandChaseApp(ctk.CTk):
         # --- mazmorras semanais ---
         mazmorras = {}
         for chave, _rotulo in DUNGEONS_CARD:
-            coluna = _coluna_no_df(df_sem, chave)
+            coluna = _coluna_dungeon_semanal(df_sem, chave)
             mazmorras[chave] = (_verdadeiro(semanal.get(coluna))
                                 if coluna else False)
 
@@ -1620,8 +1625,17 @@ class GrandChaseApp(ctk.CTk):
         if self.filtro_mazmorras:
             def _faltam(nome):
                 maz = (dados.get(nome) or {}).get("mazmorras") or {}
-                return any(not maz.get(chave, False)
-                           for chave in self.filtro_mazmorras)
+                for chave in self.filtro_mazmorras:
+                    # a chave do filtro e a chave normalizada da dungeon
+                    procurada = chave
+                    if procurada not in maz:
+                        for outra in maz:
+                            if normalizar(outra) == normalizar(chave):
+                                procurada = outra
+                                break
+                    if not maz.get(procurada, False):
+                        return True      # ainda nao fez esta dungeon
+                return False
             selecionados = [n for n in selecionados if _faltam(n)]
 
         # 2) "progresso incompleto": quem esta incompleto em TODOS os marcados
@@ -2322,7 +2336,7 @@ class GrandChaseApp(ctk.CTk):
     def _coluna_missao(self, chave):
         """Coluna da missao semanal no dataframe (pelo nome logico)."""
         df = self.dfs.get(ABA_SEMANAIS)
-        return _coluna_no_df(df, chave)
+        return _coluna_dungeon_semanal(df, chave)
 
     def _missoes_do_personagem(self, nome):
         """Estado atual das 7 missoes de um personagem {chave: bool}."""
@@ -2645,6 +2659,24 @@ def _ordenar_colunas(df):
     nome = ["Nome"] if "Nome" in cols else []
     meio = [c for c in cols if c not in internas and c != "Nome"]
     return df[nome + meio + internas]
+
+
+def _coluna_dungeon_semanal(df, chave):
+    """Coluna de uma dungeon SEMANAL no dataframe.
+
+    A Torre das Ilusoes semanal esta no banco como
+    "torre_das_ilusoes_semanal", mas a chave do app e
+    "torredasilusoes" - sem esta equivalencia a Torre nunca era
+    encontrada (e por isso o filtro dela nao filtrava nada).
+    """
+    coluna = _coluna_no_df(df, chave)
+    if coluna:
+        return coluna
+    from opcoes import mesmo_dado
+    for coluna_df in (df.columns if df is not None else ()):
+        if mesmo_dado(coluna_df, chave):
+            return coluna_df
+    return None
 
 
 def _coluna_no_df(df, chave):
