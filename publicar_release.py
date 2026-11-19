@@ -74,7 +74,18 @@ def main():
         print(resultado.stderr[-800:])
         raise SystemExit("ERRO no build")
 
-    print("\n3) montando o .zip da release...")
+    # 3) o instalador (ele RECRIA a pasta instalador/, entao vem
+    #    antes do .zip do programa)
+    print("\n3) montando o instalador (com o programa dentro)...")
+    instalador = os.path.join(RAIZ, "instalador")
+    try:
+        resultado = rodar([PYTHON, "gerar_instalador.py"], timeout=3600)
+        print(resultado.stdout.strip()[-400:])
+    except Exception as erro:
+        print("AVISO: nao consegui montar o instalador:", erro)
+
+    # 4) o .zip do programa (o que o .exe baixa para se atualizar)
+    print("\n4) montando o .zip da release...")
     if not os.path.exists(os.path.join(DIST, "Caminho da Maestria.exe")):
         raise SystemExit(f"o build nao esta em {DIST}")
     os.makedirs(SAIDA, exist_ok=True)
@@ -91,21 +102,14 @@ def main():
     print(f"    {zip_caminho} "
           f"({os.path.getsize(zip_caminho) / (1024 * 1024):.0f} MB)")
 
-    print("\n4) auditando o pacote...")
+    # 5) a auditoria (o pacote nao pode ter segredo)
+    print("\n5) auditando o pacote...")
     resultado = rodar([PYTHON, "auditoria_instalador.py"])
     if "APROVADO" not in resultado.stdout:
         print(resultado.stdout[-800:])
         raise SystemExit("ERRO: o pacote tem segredo (veja o relatorio)")
 
-    print("\n4b) montando o instalador (com o programa dentro)...")
-    instalador = os.path.join(RAIZ, "instalador")
-    try:
-        resultado = rodar([PYTHON, "gerar_instalador.py"], timeout=3600)
-        print(resultado.stdout.strip()[-400:])
-    except Exception as erro:
-        print("AVISO: nao consegui montar o instalador:", erro)
-
-    print("\n5) publicando a release no GitHub...")
+    print("\n6) publicando a release no GitHub...")
     # se ja existe uma release com esse nome, apaga (para republicar)
     antigo_release = rodar([GH, "release", "view", versao, "--repo",
                             "guitador123/caminho-da-maestria"])
