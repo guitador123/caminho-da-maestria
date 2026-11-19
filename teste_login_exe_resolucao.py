@@ -31,7 +31,7 @@ def main():
     principal = 0
     for tentativa in range(1, 4):
         fazer_login(hwnd)
-        principal = achar("Caminho da Maestria", 20)
+        principal = achar("Caminho da Maestria", 40)
         if principal:
             break
     if not principal:

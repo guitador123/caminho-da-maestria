@@ -45,7 +45,8 @@ FEED_RELEASES = f"{SITE}/releases.atom"
 NOME_ASSET = "Caminho-da-Maestria.zip"
 URL_DOWNLOAD = f"{SITE}/releases/latest/download/{NOME_ASSET}"
 ARQUIVO_VERSAO = os.path.join("assets", "versao.txt")
-TIMEOUT = 10          # segundos de espera pela rede
+TIMEOUT = 5           # segundos de espera pela rede (o app nao pode
+                      # ficar segurado na tela de atualizacao)
 NOME_ASSET = "Caminho da Maestria"   # prefixo do .zip da Release
 
 
