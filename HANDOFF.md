@@ -104,6 +104,7 @@ Pasta: `C:\Users\guilh\Downloads\Controle GrandChase\`
 | `assets/qrcode-pix.png` | **NOVO**: o QR Code do Pix (imagem pronta). |
 | `pix_pagamento.py` | **NOVO**: a chave Pix, o payload e o QR Code (gerados em memoria pelo app). |
 | `teste_doacao_exe.py` | **NOVO**: E2E do .exe (clica no botao e decodifica o QR da tela). |
+| `teste_filtro_dungeons.py` | **NOVO**: os filtros de dungeon (Torre, Caminho Abissal, Vazio 1/2/3, Vazio 4). |
 | `sql/perfil.sql` | **NOVO**: colunas `nick` e `avatar` do perfil. |
 | `teste_contador_despertar.py` | **NOVO**: contador de despertar completo. |
 | `teste_contador_libertacao.py` | **NOVO**: contador de libertação (3 condições). |
@@ -2225,6 +2226,47 @@ instalador), entao da proxima vez e so rodar ele.
 **Testado de ponta a ponta:** baixou o instalador do GitHub (228 MB em
 14s), descompactou, instalou (atalhos + desinstalador), **abriu o
 programa** e desinstalou: `INSTALADOR DO GITHUB OK`.
+
+### 5.40 🐞 O filtro de dungeon nao filtrava (18/11)
+
+**Sintoma:** marcar "Torre das Ilusoes" (e "Caminho Abissal") no
+filtro "Nao fez estas masmorras semanais" nao escondia ninguem — a
+lista continuava com os 25 cards.
+
+**A causa:** as chaves do filtro e as chaves dos dados estavam
+escritas de formas diferentes:
+
+| Onde | Antes | Agora |
+|---|---|---|
+| filtro (`FILTRO_MAZMORRAS`) | `caminho_abissal`, `torre_das_ilusoes` | `caminhoabissal`, `torredasilusoes` |
+| dados (`card_personagem.DUNGEONS`) | `caminhoabissal`, `torredasilusoes` | (os mesmos) |
+
+As chaves dos dados sao **normalizadas** (sem acento, sem espaco e sem
+underscore). O filtro usava o nome com underscore -> a busca
+(`mazmorras.get(chave)`) nunca achava -> a dungeon era tratada como
+"sempre nao feita" -> **todo mundo passava no filtro**.
+
+Por isso so as opcoes com o nome "errado" quebravam: `Vazio 1, 2 e 3`
+(`void123`) e `Vazio 4` (`void4`) funcionavam; **Torre das Ilusoes** e
+**Caminho Abissal** nao.
+
+**A correcao**
+1. as chaves de `FILTRO_MAZMORRAS` agora sao as mesmas dos dados;
+2. a comparacao no `_filtrar_personagens` tambem ficou tolerante
+   (compara as chaves normalizadas), para nao acontecer de novo;
+3. o `opcoes.py` ganhou `mesmo_dado()` e `chave_semanal()` (a Torre
+   Semanal tem dois nomes: `torre_das_ilusoes` no app e
+   `torre_das_ilusoes_semanal` no banco) — com isso a coluna dela e
+   achada em qualquer contexto (filtro, card, Missao Rapida e tela de
+   edicao).
+
+> ℹ️ A Torre **mensal** (a do "30 / 30", na aba Geral) e outra
+> coluna e continua como antes — o alias so vale para a semanal.
+
+**Teste:** `teste_filtro_dungeons.py` marca cada uma das 4 dungeons no
+banco (na conta de teste), recarrega o app e confere que o card conta a
+dungeon como feita e que o **filtro esconde justamente aquele
+personagem** (24 de 25). Resultado: `FILTROS DE DUNGEON OK`.
 
 ## 6. Pendências (17/11/2026)
 > As pendências **1, 2 e 3 já foram implementadas** (ver 5.6, 5.7 e 5.9).

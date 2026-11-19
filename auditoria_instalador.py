@@ -16,7 +16,7 @@ import zipfile
 
 RAIZ = os.path.dirname(os.path.abspath(__file__))
 ZIP = os.path.join(RAIZ, "instalador",
-                   "Caminho da Maestria - Instalador.zip")
+                   "Caminho-da-Maestria-Instalador.zip")
 RELATORIO = os.path.join(RAIZ, "instalador", "RELATORIO-SEGURANCA.txt")
 
 # (nome, padrao, eh_problema)
