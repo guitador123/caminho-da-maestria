@@ -13,6 +13,7 @@ Valida:
 """
 
 import sys
+from credenciais_teste import conta_teste
 
 import auth
 import pandas as pd
@@ -57,8 +58,7 @@ def _esperar_salvamento(app, limite=300):
             return True
     return False
 def main(argv):
-    email = argv[1] if len(argv) > 1 else "teste@teste.com"
-    senha = argv[2] if len(argv) > 2 else "testeteste"
+    email, senha = conta_teste(argv)
 
     erros = silenciar_messagebox()
     sb, resp = auth.login(email, senha)

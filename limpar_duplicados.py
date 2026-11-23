@@ -8,6 +8,7 @@ user_semanais).
 
 import sys
 from collections import Counter
+from credenciais_teste import conta_teste
 
 import auth
 import supabase_db as db
@@ -20,8 +21,7 @@ TABELAS = {
 
 
 def main(argv):
-    email = argv[1] if len(argv) > 1 else "teste@teste.com"
-    senha = argv[2] if len(argv) > 2 else "testeteste"
+    email, senha = conta_teste(argv)
 
     sb, resp = auth.login(email, senha)
     uid = resp.user.id

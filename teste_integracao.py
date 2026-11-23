@@ -22,18 +22,11 @@ import sys
 import auth
 import opcoes
 import supabase_db as db
-
-
-CONTA_TESTE = "teste@teste.com"
-SENHA_TESTE = "testeteste"
+from credenciais_teste import conta_teste
 
 
 def main(argv):
-    if len(argv) < 3:
-        # sem argumentos: usa a conta de teste padrao
-        email, senha = CONTA_TESTE, SENHA_TESTE
-    else:
-        email, senha = argv[1], argv[2]
+    email, senha = conta_teste(argv)
 
     print("1) login:", email)
     try:

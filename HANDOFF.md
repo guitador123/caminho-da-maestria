@@ -11,7 +11,7 @@
 >
 > **Pendências:** see a seção **6** (decisões fechadas + fila de trabalho
 > em ordem de prioridade). **Nada da lista foi implementado ainda.**
-> **Conta de teste:** `teste@teste.com` / `testeteste`.
+> **Conta de teste:** `teste@teste.com` (senha em `GC_TESTE_SENHA` ou no `.env.teste`, fora do git).
 >
 > Leia a seção **4** (como a tela é montada) e a **5** (armadilhas) antes de mexer.
 
@@ -198,7 +198,7 @@ nome da planilha ("Caminho Abissal") quanto com o do banco ("caminho_abissal").
 ```
 python -m py_compile app_grandchase.py            -> SINTAXE OK
 python teste_fundo.py                              -> PIL abriu OK: JPEG (1280, 720) RGB
-python teste_integracao.py teste@teste.com "testeteste"  -> INTEGRACAO OK
+python teste_integracao.py                         -> INTEGRACAO OK
 python teste_acoes.py                              -> ACOES OK
 python teste_visual.py saida.png                   -> PNG + pixels das margens (foto visível)
 python teste_visual_login.py saida.png             -> tela logada + cards + 25 linhas/aba
@@ -221,7 +221,7 @@ URL `https://rtpwvfrdhrvtulvvctze.supabase.co` · publishable key
     `altar_da_runha` (com "runha"), `void_123`, `void_4`, `caminho_abissal`,
     `terra_do_julgamento`), `updated_at`
 - Sem `created_at` nas tabelas de dados; sem `user_id` nas filhas (ligação via `character_id`).
-- Conta de teste real: `teste@teste.com` / `testeteste`
+- Conta de teste real: `teste@teste.com` (senha em `GC_TESTE_SENHA` ou no `.env.teste`, fora do git)
   (o `user_id` da conta de teste, com os personagens gravados).
 
 ### 3.1 A coluna da Torre das Ilusões semanal (descoberta nova)
@@ -1827,7 +1827,7 @@ existindo para gerar o PNG e conferir o CRC, e usa o mesmo modulo.)
 Para **nao usar mais a conta pessoal** nos testes, a conta de teste agora e:
 
 ```
-teste@teste.com / testeteste
+teste@teste.com  (senha: GC_TESTE_SENHA / .env.teste)
 ```
 
 **O que foi trocado:** todos os `teste_*.py` (e o `limpar_duplicados.py`)
@@ -2307,13 +2307,13 @@ python app_grandchase.py      # abre o login -> tela principal
 ```
 O app sempre passa pelo **login** (Supabase Auth). Para testar sem conta nova,
 use a conta de teste:
-`teste@teste.com` / `testeteste`.
+`teste@teste.com` (senha em `GC_TESTE_SENHA` ou no `.env.teste`, fora do git).
 
 ### Validar
 ```powershell
 python -m py_compile app_grandchase.py card_personagem.py janela_personagem.py tema_visual.py tema_login.py login.py caminhos.py supabase_db.py opcoes.py
 python teste_fundo.py                              # imagem existe e abre no PIL
-python teste_integracao.py teste@teste.com "testeteste"   # dados/RLS
+python teste_integracao.py                         # dados/RLS
 python teste_acoes.py                              # acoes da tela (nao destrutivo)
 python teste_edicao.py                             # edicao grava nos dataframes
 python teste_campos_novos.py                       # colunas novas no Supabase

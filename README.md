@@ -109,8 +109,14 @@ python teste_zerar_semanais.py
 ...
 ```
 
-A conta de teste é `teste@teste.com` / `testeteste` (definida no padrão
-de cada teste; pode passar e-mail e senha como argumento).
+A conta de teste é `teste@teste.com`. A **senha não fica no repositório**:
+os testes leem a senha (nessa ordem) dos argumentos (`python teste_x.py email senha`),
+da variável de ambiente `GC_TESTE_SENHA` ou do arquivo local `.env.teste`
+(ignorado pelo git), com a linha:
+
+```
+GC_TESTE_SENHA=a-senha-da-conta-de-teste
+```
 
 ---
 

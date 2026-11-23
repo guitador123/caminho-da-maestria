@@ -14,14 +14,14 @@ import json
 import os
 import sys
 import time
+from credenciais_teste import conta_teste
 
 import caminhos
 from login import LoginApp, _ler_prefs, _salvar_prefs
 
 
 def main(argv):
-    email = argv[1] if len(argv) > 1 else "teste@teste.com"
-    senha = argv[2] if len(argv) > 2 else "testeteste"
+    email, senha = conta_teste(argv)
 
     arquivo = caminhos.preferencias()
     print("prefs:", arquivo)

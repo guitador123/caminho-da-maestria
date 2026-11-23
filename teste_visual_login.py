@@ -13,10 +13,10 @@ from PIL import ImageGrab
 
 import auth
 from app_grandchase import GrandChaseApp
+from credenciais_teste import conta_teste
 
 SAIDA = sys.argv[1] if len(sys.argv) > 1 else "captura_login.png"
-EMAIL = sys.argv[2] if len(sys.argv) > 2 else "teste@teste.com"
-SENHA = sys.argv[3] if len(sys.argv) > 3 else "testeteste"
+EMAIL, SENHA = conta_teste(sys.argv, inicio=2)
 
 
 def main():

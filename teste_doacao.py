@@ -11,6 +11,7 @@ Teste do BOTAO DE DOACAO e do painel lateral.
 import os
 import sys
 import time
+from credenciais_teste import conta_teste
 
 import customtkinter as ctk
 
@@ -34,8 +35,7 @@ import pix_pagamento  # noqa: E402
 
 
 def main(argv):
-    email = argv[1] if len(argv) > 1 else "teste@teste.com"
-    senha = argv[2] if len(argv) > 2 else "testeteste"
+    email, senha = conta_teste(argv)
 
     print("1) o botao 'Apoiar' no cabecalho:")
     rotulos = [rotulo for _icone, rotulo, _caixa in tv.BOTOES_LINHA1]

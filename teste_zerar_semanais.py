@@ -16,6 +16,7 @@ devolve 1 (sem quebrar).
 
 import os
 import sys
+from credenciais_teste import conta_teste
 
 COLUNAS = ["fornalha_infernal", "altar_da_runha", "torre_das_ilusoes_semanal",
            "void_123", "void_4", "caminho_abissal", "terra_do_julgamento"]
@@ -30,8 +31,7 @@ def _valor(resultado):
 
 
 def main(argv):
-    email = argv[1] if len(argv) > 1 else "teste@teste.com"
-    senha = argv[2] if len(argv) > 2 else "testeteste"
+    email, senha = conta_teste(argv)
 
     import auth
 

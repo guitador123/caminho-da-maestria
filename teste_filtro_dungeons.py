@@ -17,6 +17,7 @@ filtro esconde justamente esse personagem.
 import os
 import sys
 import time
+from credenciais_teste import conta_teste
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -36,8 +37,7 @@ OPCOES = [
 
 
 def main(argv):
-    email = argv[1] if len(argv) > 1 else "teste@teste.com"
-    senha = argv[2] if len(argv) > 2 else "testeteste"
+    email, senha = conta_teste(argv)
 
     sb, resp = auth.login(email, senha)
     if getattr(resp, "user", None) is None:

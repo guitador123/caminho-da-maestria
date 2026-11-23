@@ -13,6 +13,7 @@ import io
 import os
 import sys
 import time
+from credenciais_teste import conta_teste
 
 from PIL import Image
 
@@ -45,8 +46,7 @@ def icone_da_janela(widget):
 
 
 def main(argv):
-    email = argv[1] if len(argv) > 1 else "teste@teste.com"
-    senha = argv[2] if len(argv) > 2 else "testeteste"
+    email, senha = conta_teste(argv)
 
     print("1) o .ico do app:")
     ico = caminhos.icone_app()

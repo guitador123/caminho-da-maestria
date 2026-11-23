@@ -13,6 +13,7 @@ Valida:
 
 import sys
 import time
+from credenciais_teste import conta_teste
 
 import tkinter.messagebox as mb
 
@@ -27,8 +28,7 @@ ALVO = "Ai"
 
 
 def main(argv):
-    email = argv[1] if len(argv) > 1 else "teste@teste.com"
-    senha = argv[2] if len(argv) > 2 else "testeteste"
+    email, senha = conta_teste(argv)
 
     sb, resp = auth.login(email, senha)
     app = GrandChaseApp(user=resp.user, supabase=sb)

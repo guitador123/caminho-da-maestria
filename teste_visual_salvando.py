@@ -13,10 +13,11 @@ from PIL import ImageGrab
 
 import auth
 from app_grandchase import GrandChaseApp
+from credenciais_teste import conta_teste
 
 SAIDA = sys.argv[1] if len(sys.argv) > 1 else "captura_salvando.png"
 
-sb, resp = auth.login("teste@teste.com", "testeteste")
+sb, resp = auth.login(*conta_teste([]))
 app = GrandChaseApp(user=resp.user, supabase=sb)
 app.attributes("-topmost", True)
 app.lift()

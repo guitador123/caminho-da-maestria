@@ -13,6 +13,8 @@ from ctypes import wintypes
 
 from PIL import ImageGrab
 
+from credenciais_teste import conta_teste
+
 EXE = (sys.argv[2] if len(sys.argv) > 2 else
        r"dist\Caminho da Maestria\Caminho da Maestria.exe")
 SAIDA = sys.argv[1] if len(sys.argv) > 1 else "exe_login.png"
@@ -103,9 +105,10 @@ def fazer_login(hwnd):
     r = _rect(hwnd)
     focar(hwnd)
     clicar(r.left + 150, r.top + 31 + 385)    # campo de e-mail
-    digitar("teste@teste.com")
+    email, senha = conta_teste([])
+    digitar(email)
     clicar(r.left + 150, r.top + 31 + 452)    # campo de senha
-    digitar("testeteste")
+    digitar(senha)
     clicar(r.left + 150, r.top + 31 + 540)    # botao Entrar
 
 
