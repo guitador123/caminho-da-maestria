@@ -138,6 +138,15 @@ ROTULOS_COLUNAS = {
 BASE_DIR = caminhos.app_dir()
 BACKGROUND_PATH = caminhos.fundo_principal()
 EXCEL_DEFAULT = caminhos.planilha_padrao()
+
+
+def _mesmo_arquivo(a, b):
+    """True se os dois caminhos apontam para o mesmo arquivo."""
+    try:
+        return (os.path.normcase(os.path.abspath(a))
+                == os.path.normcase(os.path.abspath(b)))
+    except (TypeError, ValueError):
+        return False
 DB_FILE = caminhos.banco_sqlite()
 LOG_PATH = caminhos.arquivo_log()
 
@@ -2143,6 +2152,11 @@ class GrandChaseApp(ctk.CTk):
             return
 
         caminho = self.excel_path
+        # a planilha-modelo do repositorio NUNCA e sobrescrita: ela e
+        # versionada (e publica no GitHub); os dados reais do usuario vao
+        # para um arquivo que ele escolhe
+        if caminho and _mesmo_arquivo(caminho, EXCEL_DEFAULT):
+            caminho = None
         if not caminho:
             caminho = filedialog.asksaveasfilename(
                 title="Salvar planilha Excel",

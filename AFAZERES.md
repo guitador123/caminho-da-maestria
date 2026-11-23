@@ -72,9 +72,9 @@ ou do `supabase` pode quebrar os PCs da guilda no próximo `atualizar.bat`.
 - Obs.: para atualizar uma biblioteca, troque a versão no `requirements.txt` e no `constraints.txt`, rode os testes e publique uma release. Vale revisar a cada poucos meses (ex.: `certifi`, que traz os certificados).
 - **Pronto quando:** `pip install -r requirements.txt` num `.venv` novo instala exatamente as mesmas versões.
 
-### 5. Revisar a planilha `Controle Grand Chase (1).xlsx` no repositório
-- [ ] Ver se tem dados reais da guilda (nicks, progresso)
-- [ ] Se tiver: tirar do repositório e pôr no `.gitignore` (e avaliar limpar do histórico)
+### 5. Revisar a planilha `Controle Grand Chase (1).xlsx` no repositório ✅
+- [x] Revisada (23/11): só os 25 nomes de personagem do jogo e valores de progresso; sem nick, e-mail, contato ou metadados pessoais. Pode ficar (é o modelo de onde saiu o `opcoes.py`)
+- [x] Risco real encontrado: no modo git, "Salvar Excel" gravava POR CIMA dessa planilha versionada (os dados reais iriam para o GitHub num `git add .`). Agora o app sempre pergunta onde salvar quando o destino é a planilha-modelo
 
 ### 6. Salvamento atômico e só do que mudou
 Cada salvamento envia a conta inteira (25 personagens × todas as tabelas),
