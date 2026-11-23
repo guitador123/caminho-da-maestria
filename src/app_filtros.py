@@ -6,24 +6,14 @@ Parte da tela principal (`GrandChaseApp` herda de `FiltrosMixin`).
 Separado do app_grandchase.py sem mudar o codigo dos metodos.
 """
 
-import tema_visual as tv
 import tkinter as tk
-from card_personagem import (
-    DUNGEONS as DUNGEONS_CARD,
-    LARGURA as CARD_LARGURA,
-    _fracao)
-from config_app import (
-    ABA_GERAL,
-    ABA_SEMANAIS,
-    FILTRO_MAZMORRAS,
-    FILTRO_PROGRESSO,
-    FILTRO_VOID)
-from dados_app import (
-    _coluna_dungeon_semanal,
-    _colunas_conhecidas,
-    _num,
-    _verdadeiro)
-from opcoes import normalizar
+
+import filtros
+import tema_visual as tv
+from card_personagem import LARGURA as CARD_LARGURA
+from config_app import (ABA_GERAL, ABA_SEMANAIS, FILTRO_MAZMORRAS,
+                        FILTRO_PROGRESSO, FILTRO_VOID)
+from dados_app import _colunas_conhecidas, _verdadeiro
 from registro import falha
 
 
@@ -150,104 +140,23 @@ class FiltrosMixin:
 
     # --------------------------------------------------------- filtros ----
     def _dados_filtro(self, nome):
-        """Dados de um personagem usados pelos filtros."""
-        df_geral = self.dfs.get(ABA_GERAL)
-        df_sem = self.dfs.get(ABA_SEMANAIS)
-
-        def _linha(df):
-            if df is None or df.empty or "Nome" not in df.columns:
-                return {}
-            achada = df[df["Nome"].astype(str) == str(nome)]
-            if achada.empty:
-                return {}
-            return achada.iloc[0].to_dict()
-
-        geral = _linha(df_geral)
-        semanal = _linha(df_sem)
-
-        # --- void (forca do personagem) ---
-        vazio_uni = _num(geral.get("Vazio Uni.") or geral.get("vazio_uni"))
-        vazio_apo = _num(geral.get("Vazio Apo.") or geral.get("vazio_apo"))
-
-        # --- mazmorras semanais ---
-        mazmorras = {}
-        for chave, _rotulo in DUNGEONS_CARD:
-            coluna = _coluna_dungeon_semanal(df_sem, chave)
-            mazmorras[chave] = (_verdadeiro(semanal.get(coluna))
-                                if coluna else False)
-
-        # --- despertar / liberacao ---
-        despertar = False
-        nucleo = _fracao(geral.get("Núcleo") or geral.get("nucleo"))
-        epicos = _fracao(geral.get("Núcleos Épicos+")
-                         or geral.get("nucleos_epicos"))
-        if nucleo[0] == 13 and epicos[0] == 9:
-            despertar = True
-        libertacao = False
-        if _verdadeiro(geral.get("Libertação") or geral.get("libertacao")):
-            lib_nuc = _num(geral.get("Libertação Núcleos")
-                           or geral.get("libertacao_nucleos"))
-            lib_epi = _num(geral.get("Libertação Épicos+")
-                           or geral.get("libertacao_epicos"))
-            libertacao = (lib_nuc == 9 and lib_epi == 4)
-
-        return {"vazio_uni": vazio_uni, "vazio_apo": vazio_apo,
-                "ataque": _num(geral.get("Poder") or geral.get("poder")),
-                "mazmorras": mazmorras, "despertar": despertar,
-                "libertacao": libertacao}
+        """Dados de um personagem usados pelos filtros (ver filtros.py)."""
+        return filtros.dados_filtro(self.dfs.get(ABA_GERAL),
+                                    self.dfs.get(ABA_SEMANAIS), nome)
 
     def _ordenar_personagens(self, nomes, dados):
-        """Ordem: sempre do mais forte para o mais fraco.
-
-        Padrao: pelo **Ataque Total** (maior -> menor). Se o filtro "Ordenar
-        por Void" estiver marcado, a lista passa a ordenar pela soma dos
-        Void selecionados.
-        """
-        if self.filtro_ordem_void:
-            selecionados = self.filtro_ordem_void
-
-            def _forca(nome):
-                info = dados.get(nome) or {}
-                return sum(info.get(chave, 0) for chave in selecionados)
-
-            return sorted(nomes, key=_forca, reverse=True)
-        return sorted(nomes,
-                      key=lambda n: (dados.get(n) or {}).get("ataque", 0),
-                      reverse=True)
+        """Do mais forte para o mais fraco (ver filtros.filtrar_e_ordenar)."""
+        return filtros.filtrar_e_ordenar(nomes, dados,
+                                         ordem_void=self.filtro_ordem_void)
 
     def _filtrar_personagens(self, nomes):
         """Aplica os filtros e devolve (nomes, dados) ja ordenados."""
         dados = {nome: self._dados_filtro(nome) for nome in nomes}
-        selecionados = list(nomes)
-
-        # 1) "nao fez estas masmorras semanais": quem ainda nao concluiu
-        #    pelo menos uma das selecionadas
-        if self.filtro_mazmorras:
-            def _faltam(nome):
-                maz = (dados.get(nome) or {}).get("mazmorras") or {}
-                for chave in self.filtro_mazmorras:
-                    # a chave do filtro e a chave normalizada da dungeon
-                    procurada = chave
-                    if procurada not in maz:
-                        for outra in maz:
-                            if normalizar(outra) == normalizar(chave):
-                                procurada = outra
-                                break
-                    if not maz.get(procurada, False):
-                        return True      # ainda nao fez esta dungeon
-                return False
-            selecionados = [n for n in selecionados if _faltam(n)]
-
-        # 2) "progresso incompleto": quem esta incompleto em TODOS os marcados
-        if self.filtro_progresso:
-            def _incompleto(nome):
-                info = dados.get(nome) or {}
-                return all(not info.get(chave, False)
-                           for chave in self.filtro_progresso)
-            selecionados = [n for n in selecionados if _incompleto(n)]
-
-        # 3) ordem (do mais forte para o mais fraco)
-        return self._ordenar_personagens(selecionados, dados), dados
+        visiveis = filtros.filtrar_e_ordenar(
+            nomes, dados, mazmorras=self.filtro_mazmorras,
+            progresso=self.filtro_progresso,
+            ordem_void=self.filtro_ordem_void)
+        return visiveis, dados
 
     def _nomes_visiveis(self):
         """Os nomes dos personagens que passam pelos filtros (na ordem)."""
@@ -268,6 +177,23 @@ class FiltrosMixin:
         else:
             alvo.add(chave)
         self._aplicar_filtros()
+
+    def _reordenar_cards(self):
+        """Refaz a lista (filtro + ordem) depois que um card mudou.
+
+        Sem isso, mudar o Ataque Total nao trocava a ordem e marcar uma
+        dungeon (ex.: Caminho Abissal) nao tirava o card do filtro "nao
+        fez" ate mexer em algum filtro. Mantem a rolagem onde estava.
+        """
+        try:
+            yview = self.canvas.yview()
+        except tk.TclError:
+            return                    # janela ja fechada
+        self._reposicionar_cards()
+        try:
+            self.canvas.yview_moveto(yview[0])
+        except tk.TclError:
+            pass                      # janela ja fechada
 
     def _aplicar_filtros(self):
         """Aplica os filtros.

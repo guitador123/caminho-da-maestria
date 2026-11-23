@@ -25,6 +25,7 @@ import customtkinter as ctk
 import caminhos
 
 from opcoes import obter_opcoes
+from dados_app import _num as _num_dados
 from registro import falha
 
 ABA_GERAL = "Geral"
@@ -83,12 +84,13 @@ CORES = {
 
 
 def _num(valor, padrao=0):
+    """'5 / 9' -> 5; '618.002' (ponto de milhar) -> 618002."""
     if valor is None or valor == "":
         return padrao
-    try:
-        return int(float(str(valor).replace("/", " ").split()[0]))
-    except (ValueError, IndexError):
+    partes = str(valor).replace("/", " ").split()
+    if not partes:
         return padrao
+    return _num_dados(partes[0], padrao)
 
 
 def _fracao_texto(valor, maximo):

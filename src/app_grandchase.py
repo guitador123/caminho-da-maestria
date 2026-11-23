@@ -418,6 +418,9 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
                 try:
                     # rebuild os dados a partir dos dataframes (podem ter mudado)
                     card.atualizar(self._dados_personagem(str(nome)))
+                    # o Ataque Total ou uma dungeon podem ter mudado: refaz
+                    # a ordem e o filtro na hora
+                    self._reordenar_cards()
                     return True
                 except Exception as e:
                     falha("[Personagem] redesenhar o card", e)
@@ -451,6 +454,7 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
                 card.atualizar(self._dados_personagem(str(nome)))
             except Exception as erro:
                 falha("[Card] redesenhar o card", erro)
+        self._reordenar_cards()
 
     # ------------------------------------------------------------ textos ----
     def _aplicar_icone(self):

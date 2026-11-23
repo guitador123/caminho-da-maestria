@@ -13,6 +13,8 @@ from dados_app import (_coluna_dungeon_semanal, _coluna_no_df,
 @pytest.mark.parametrize("valor, esperado", [
     (None, 0), ("", 0), ("12", 12), ("618002.0", 618002), (7.9, 7),
     ("abc", 0),
+    # ponto de MILHAR, como o card mostra o Ataque Total
+    ("618.002", 618002), ("1.234.567", 1234567), ("3.5", 3),
 ])
 def test_num(valor, esperado):
     assert _num(valor) == esperado

@@ -6,6 +6,7 @@ Sem nada de Tk: dá para testar sem abrir janela.
 """
 
 import os
+import re
 from config_app import ROTULOS_COLUNAS
 from opcoes import coluna_banco
 from supabase_db import COLUNAS
@@ -60,10 +61,21 @@ def _verdadeiro(valor) -> bool:
     return texto in ("verdadeiro", "true", "1", "t", "sim", "x")
 
 
+# "618.002" e "1.234.567": ponto de MILHAR (como o card mostra o Ataque
+# Total). Sem isso "618.002" virava 618 e o personagem ia para o fim da
+# lista. "618002.0" (como vem do Excel) continua sendo decimal.
+_MILHAR = re.compile(r"^[+-]?[0-9]{1,3}(\.[0-9]{3})+$")
+
+
 def _num(valor, padrao=0):
-    """Converte para int (aceita None, '' e texto)."""
+    """Converte para int (aceita None, '', texto e ponto de milhar)."""
     if valor is None or valor == "":
         return padrao
+    if isinstance(valor, str):
+        texto = valor.strip().replace(" ", "")
+        if _MILHAR.match(texto):
+            texto = texto.replace(".", "")
+        valor = texto
     try:
         return int(float(valor))
     except (TypeError, ValueError):

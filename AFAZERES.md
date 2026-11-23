@@ -146,5 +146,17 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 
 ---
 
+## 🔧 Pendências que apareceram no caminho
+
+### Filtros dos cards (Ataque Total, Caminho Abissal, Torre) ✅
+- [x] **Bug:** depois de editar um personagem, marcar uma dungeon ou zerar as dungeons, os cards eram redesenhados mas a lista NÃO era refeita: mudar o Ataque Total não trocava a ordem, e com o filtro "não fez Caminho Abissal/Torre" ligado o card marcado continuava aparecendo até mexer em algum filtro. Agora `_reordenar_cards()` refaz filtro + ordem na hora (mantendo a rolagem)
+- [x] **Bug:** o card mostra o Ataque Total com ponto de milhar ("618.002"), mas o campo de edição lia "618.002" como 618. Agora aceita o ponto de milhar
+- [x] A lógica foi para `src/filtros.py` (funções puras) com 20 testes em `tests/test_filtros.py`, incluindo a Torre das Ilusões, que tem o mesmo nome nas duas abas (Geral = andar do mês; Semanais = fez esta semana; o filtro usa a da semana)
+- [x] `tests/integracao/teste_filtro_ao_vivo.py` reproduz os dois casos na tela (falha no código antigo, passa no novo)
+
+### Ainda abertas
+- [ ] Pix: `monta_payload` usa o campo `01` = `26` (o padrão do Pix é `11`/`12`). O app usa o QR pronto (`pix_payload.txt`), então o QR da doação não é afetado; conferir antes de usar o `monta_payload`
+- [ ] Limpeza de imports sem uso (`login.py`, `tema_visual.py`, `janela_doacao.py`, `publicar_release.py`)
+
 ## Ordem sugerida
 1 → 2 → 3 → 4 → 5 → 7 → 6 → 8 → 9 → 10 → 11 → 12 → 13 → 14
