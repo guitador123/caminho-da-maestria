@@ -294,6 +294,12 @@ def _atualizar_com_release():
         destino = os.path.join(temporario, "programa")
         with zipfile.ZipFile(zip_arquivo) as pacote:
             pacote.extractall(destino)
+        # o zip (~200 MB) ja foi extraido: nao precisa ficar no Temp
+        for arquivo in (zip_arquivo, zip_arquivo + ".sig"):
+            try:
+                os.remove(arquivo)
+            except OSError:
+                pass
         # a release pode ter uma pasta dentro do zip
         if not os.path.exists(os.path.join(destino, "Caminho da Maestria.exe")):
             for item in os.listdir(destino):
@@ -304,12 +310,13 @@ def _atualizar_com_release():
                     break
         if not os.path.exists(os.path.join(destino, "Caminho da Maestria.exe")):
             _registrar("o zip da release nao tem o executavel")
+            shutil.rmtree(temporario, ignore_errors=True)
             return False
         _registrar(f"release baixada: {url}")
-        _agendar_troca(destino)
+        _agendar_troca(destino, limpar=temporario)
         _registrar("troca agendada; o programa vai abrir de novo")
         # NAO apaga a pasta temporaria agora: o auxiliar precisa dela
-        # para copiar os arquivos (e ele apaga no final)
+        # para copiar os arquivos (e ele apaga a pasta INTEIRA no final)
         return True
     except Exception as erro:
         _registrar(f"ERRO ao baixar a release: {erro!r}")
@@ -317,7 +324,7 @@ def _atualizar_com_release():
         return False
 
 
-def _agendar_troca(novos, copiar=True, abrir=None):
+def _agendar_troca(novos, copiar=True, abrir=None, limpar=None):
     """Cria o script que troca os arquivos e abre o programa de novo.
 
     O Windows nao deixa trocar um arquivo que esta em uso, entao a troca
@@ -326,6 +333,7 @@ def _agendar_troca(novos, copiar=True, abrir=None):
 
     `abrir` e a linha (cmd) que abre o programa; o padrao e o .exe. Mesmo
     se a troca falhar, o programa (a versao antiga) e aberto de novo.
+    `limpar` e a pasta temporaria a apagar no final (padrao: `novos`).
     """
     destino = _app_dir()
     auxiliar = os.path.join(tempfile.gettempdir(), "cm_trocar_arquivos.cmd")
@@ -341,7 +349,7 @@ def _agendar_troca(novos, copiar=True, abrir=None):
                  "    ping 127.0.0.1 -n 3 >nul\r\n"
                  "    goto :copia\r\n"
                  ")\r\n")
-        limpeza = f'rmdir /s /q "{novos}" >nul 2>&1\r\n'
+        limpeza = f'rmdir /s /q "{limpar or novos}" >nul 2>&1\r\n'
     else:
         copia = ""
         limpeza = ""
@@ -407,8 +415,42 @@ def _splash(texto):
         return None
 
 
+def limpar_sobras(idade_minima=3600):
+    """Apaga pastas `cm_atualizacao_*` antigas do Temp (~200 MB cada).
+
+    Versoes antigas do auxiliar apagavam so a pasta extraida e deixavam o
+    zip para tras. So mexe nas pastas com mais de `idade_minima` segundos
+    (uma atualizacao em andamento nunca e tocada). Devolve quantas apagou.
+    """
+    apagadas = 0
+    agora = time.time()
+    try:
+        temp = tempfile.gettempdir()
+        for nome in os.listdir(temp):
+            if not nome.startswith("cm_atualizacao_"):
+                continue
+            caminho = os.path.join(temp, nome)
+            try:
+                if not os.path.isdir(caminho) or os.path.islink(caminho):
+                    continue
+                if agora - os.path.getmtime(caminho) < idade_minima:
+                    continue
+                shutil.rmtree(caminho, ignore_errors=True)
+                if not os.path.exists(caminho):
+                    apagadas += 1
+            except OSError:
+                pass
+    except OSError:
+        pass
+    if apagadas:
+        _registrar(f"limpeza: {apagadas} pasta(s) antiga(s) de atualizacao "
+                   "apagada(s) do Temp")
+    return apagadas
+
+
 def verificar_e_atualizar(mostrar=True):
     """Confere o GitHub e atualiza se precisar. Devolve True se atualizou."""
+    limpar_sobras()
     splash = _splash("Verificando atualizacoes...") if mostrar else None
 
     def fechar_splash():

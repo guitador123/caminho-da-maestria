@@ -54,7 +54,7 @@ do GitHub for comprometida, todos os PCs da guilda rodam o código do invasor.
 - [x] `atualizacao.py` só instala se a assinatura conferir; senão registra no log e abre a versão atual
 - [x] `teste_assinatura.py`: válida instala; zip adulterado, .sig adulterado, sem .sig e chave de invasor são recusados
 - [ ] **Guardar uma cópia da chave privada** fora do PC (pendrive ou gerenciador de senhas)
-- [ ] Publicar uma release com o código novo (só a partir dela os .exe passam a conferir)
+- [x] Publicada a release `v2026.11.23-bc98408` com o `.sig` (a release real baixada do GitHub confere; o módulo está dentro do .exe)
 - [ ] Ativar a verificação em duas etapas (2FA) na conta do GitHub, se ainda não estiver
 - Obs.: o modo git (`atualizar.bat` / `git pull`) não é coberto pela assinatura; ele confia no GitHub. Aí a proteção é o 2FA.
 - **Pronto quando:** um zip alterado é recusado e o app abre normalmente na versão atual.
