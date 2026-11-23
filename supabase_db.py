@@ -583,43 +583,71 @@ def _upsert_lote(supabase: Client, tabela: str, payloads: list) -> int:
     return total
 
 
-def salvar_conta(supabase: Client, user_id: str, dados_por_aba: dict) -> dict:
-    """Salva todas as abas de uma conta em LOTE (1 requisicao por tabela).
+def _montar_payloads(supabase: Client, user_id: str, dados_por_aba: dict,
+                     perdidas=None) -> dict:
+    """Converte as abas em linhas do banco: {logica: [payload, ...]}.
 
-    `dados_por_aba` = {"Geral": [records...], "Peças (Void)": [...], ...}
-    Cada record tem a coluna "Nome" (nome do personagem).
-
-    Devolve:
-      {"salvos": {"personagens": n, ...}, "perdidas": [colunas], "erro": None}
+    Linhas filhas sem `character_id` levam `_nome` (o nome do personagem),
+    para o banco achar o id. `perdidas` recebe as colunas da planilha que
+    nao existem no banco.
     """
-    resultado = {"salvos": {}, "perdidas": [], "erro": None}
-
-    # --- colunas que o banco aceita ------------------------------------
-    permitidas = {}
+    permitidas_geral = colunas_salvaveis(supabase, "personagens")
+    saida = {}
     for aba, logica in ABAS_TABELAS.items():
-        permitidas[aba] = colunas_salvaveis(supabase, logica)
+        linhas = dados_por_aba.get(aba) or []
+        extras = _extras(supabase, logica)
+        payloads = []
+        for linha in linhas:
+            payload = _limpar(linha, logica, extras)
+            if logica == "personagens":
+                if not payload.get("character_name"):
+                    continue
+                payload["user_id"] = user_id
+                if perdidas is not None:
+                    for coluna in linha:
+                        if coluna in ("Nome", "id", "updated_at"):
+                            continue
+                        if coluna_banco(coluna) not in permitidas_geral:
+                            perdidas.append(str(coluna))
+            else:
+                if not payload:
+                    continue
+                nome = linha.get("Nome") or linha.get("nome")
+                if not payload.get("character_id"):
+                    if not nome:
+                        continue
+                    payload["_nome"] = str(nome)
+            payloads.append(payload)
+        saida[logica] = payloads
+    return saida
 
-    # --- personagens (1 requisicao) -------------------------------------
-    linhas = dados_por_aba.get("Geral") or []
-    # colunas opcionais dos personagens (ex.: nivel_chaser): so sao enviadas
-    # se existirem de fato no banco (evita erro de "column not found")
-    extras_geral = _extras(supabase, "personagens")
-    payloads = []
-    for linha in linhas:
-        payload = _limpar(linha, "personagens", extras_geral)
-        if not payload.get("character_name"):
-            continue
-        payload["user_id"] = user_id
-        payloads.append(payload)
-        for coluna in linha:
-            if coluna in ("Nome", "id", "updated_at"):
-                continue
-            if coluna_banco(coluna) not in permitidas.get("Geral", set()):
-                resultado["perdidas"].append(str(coluna))
-    resultado["salvos"]["personagens"] = _upsert_lote(
-        supabase, "user_characters", payloads)
 
-    # --- ids dos personagens (1 requisicao) -----------------------------
+def so_alteradas(payloads: dict, originais: dict) -> dict:
+    """Fica so com as linhas que mudaram em relacao ao `originais` (o que
+    foi carregado do banco ou salvo por ultimo). Linha sem `id` (nova)
+    sempre vai."""
+    saida = {}
+    for logica, linhas in payloads.items():
+        antes = {p.get("id"): p for p in originais.get(logica, ()) if p.get("id")}
+        saida[logica] = [p for p in linhas
+                         if not p.get("id") or antes.get(p["id"]) != p]
+    return saida
+
+
+def _rpc_indisponivel(erro) -> bool:
+    """A funcao salvar_conta ainda nao foi criada no banco?"""
+    codigo = str(getattr(erro, "code", "") or "")
+    texto = str(erro).lower()
+    return codigo in ("PGRST202", "42883") or (
+        "salvar_conta" in texto and ("could not find" in texto
+                                     or "does not exist" in texto))
+
+
+def _salvar_por_tabela(supabase: Client, user_id: str, payloads: dict) -> dict:
+    """Jeito antigo (1 requisicao por tabela, SEM transacao). So e usado se
+    a funcao `salvar_conta` (sql/salvar_conta.sql) nao existir no banco."""
+    salvos = {"personagens": _upsert_lote(supabase, "user_characters",
+                                          payloads.get("personagens", []))}
     mapa = {}
     try:
         for p in carregar_personagens(supabase, user_id):
@@ -627,31 +655,64 @@ def salvar_conta(supabase: Client, user_id: str, dados_por_aba: dict) -> dict:
                 mapa[p["Nome"]] = p["id"]
     except Exception:
         falha("mapear personagens ao salvar")
-        mapa = {}
+    for logica in ("pecas_void", "acessorios_titulo", "semanais"):
+        linhas = []
+        for p in payloads.get(logica, []):
+            p = dict(p)
+            nome = p.pop("_nome", None)
+            if not p.get("character_id"):
+                if nome not in mapa:
+                    continue
+                p["character_id"] = mapa[nome]
+            linhas.append(p)
+        salvos[logica] = _upsert_lote(supabase, TABELAS[logica], linhas)
+    return salvos
 
-    # --- tabelas filhas (1 requisicao cada) ---------------------------
-    for aba, logica in ABAS_TABELAS.items():
-        if logica == "personagens":
-            continue
-        linhas = dados_por_aba.get(aba) or []
-        if not linhas:
-            continue
-        extras = _extras(supabase, logica)
-        payloads = []
-        for linha in linhas:
-            payload = _limpar(linha, logica, extras)
-            if not payload:
-                continue
-            nome = linha.get("Nome") or linha.get("nome")
-            if nome and nome in mapa:
-                payload["character_id"] = mapa[nome]
-            elif not payload.get("character_id"):
-                continue
-            payloads.append(payload)
-        resultado["salvos"][logica] = _upsert_lote(supabase, TABELAS[logica],
-                                                    payloads)
 
+def salvar_conta(supabase: Client, user_id: str, dados_por_aba: dict,
+                 originais_por_aba: dict = None) -> dict:
+    """Salva a conta numa TRANSACAO so (funcao `salvar_conta` no banco).
+
+    `dados_por_aba` = {"Geral": [records...], "Peças (Void)": [...], ...}
+    Cada record tem a coluna "Nome" (nome do personagem).
+    `originais_por_aba` (mesmo formato) = o que esta no banco; se vier, so
+    as linhas diferentes sao enviadas.
+
+    Se qualquer linha falhar, nada e gravado (levanta a excecao).
+
+    Devolve:
+      {"salvos": {"personagens": n, ...}, "perdidas": [colunas],
+       "erro": None, "atomico": True/False}
+    """
+    resultado = {"salvos": {}, "perdidas": [], "erro": None, "atomico": True}
+    payloads = _montar_payloads(supabase, user_id, dados_por_aba,
+                                resultado["perdidas"])
+    if originais_por_aba is not None:
+        payloads = so_alteradas(
+            payloads, _montar_payloads(supabase, user_id, originais_por_aba))
     resultado["perdidas"] = sorted(set(resultado["perdidas"]))
+
+    if not any(payloads.values()):
+        resultado["salvos"] = {logica: 0 for logica in payloads}
+        return resultado
+
+    envio = {logica: [{k: v for k, v in p.items() if k != "user_id"}
+                      for p in linhas]
+             for logica, linhas in payloads.items()}
+    try:
+        resp = supabase.rpc("salvar_conta", {"dados": envio}).execute()
+        contagem = getattr(resp, "data", None) or {}
+        resultado["salvos"] = {logica: int(contagem.get(logica, 0))
+                               for logica in payloads}
+        return resultado
+    except Exception as erro:
+        if not _rpc_indisponivel(erro):
+            raise
+        falha("salvar_conta (RPC) indisponivel: rode sql/salvar_conta.sql "
+              "no Supabase; salvando tabela por tabela", erro)
+
+    resultado["atomico"] = False
+    resultado["salvos"] = _salvar_por_tabela(supabase, user_id, payloads)
     return resultado
 
 

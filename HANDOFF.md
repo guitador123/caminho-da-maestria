@@ -585,6 +585,14 @@ cada salvamento, e ainda abria um `messagebox` de confirmação.
    (25 personagens = 1 upsert; +1 para reler os ids; +1 por tabela filha)
    → de ~100 requisições para ~5. `_upsert_lote` separa linhas com `id`
    (merge) das novas (insert) porque o PostgREST exige chaves iguais no lote.
+   **Atualizado (23/11, item 6 do AFAZERES):** agora vai **só o que mudou**
+   (`so_alteradas()` compara com `self.originals` quando eles vieram do banco)
+   numa **requisição só** à função `salvar_conta(dados jsonb)` do Postgres
+   (`sql/salvar_conta.sql`), que grava as 4 tabelas numa **transação**: se uma
+   linha falha, nada é gravado. Ela é `security invoker` (o RLS vale), não
+   troca `user_id`/`character_id` num update e recusa `id` que não é da conta.
+   Sem a função no banco, o app cai no jeito antigo e registra no log.
+   Teste: `python teste_salvar_atomico.py`.
 2. **Thread de rede** — `salvar_supabase()` tira um *snapshot* dos dataframes e
    sobe uma `threading.Thread` que só faz I/O (nada de Tk). O resultado volta
    por `queue.Queue` e é lido na thread da UI por `after()` (`_verificar_salvamento`).

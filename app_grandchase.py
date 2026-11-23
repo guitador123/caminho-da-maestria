@@ -213,6 +213,9 @@ class GrandChaseApp(ctk.CTk):
         self.excel_path = EXCEL_DEFAULT if os.path.exists(EXCEL_DEFAULT) else None
         self.dfs = {}
         self.originals = {}
+        # True quando `originals` e o que esta no banco: ai o salvamento
+        # manda so as linhas que mudaram (importado do Excel = manda tudo)
+        self._originais_do_banco = False
         self.tree_refs = {}
         self.abas_criadas = []
         self.modified = False
@@ -1371,6 +1374,7 @@ class GrandChaseApp(ctk.CTk):
         self.abas_criadas.clear()
         self.dfs.clear()
         self.originals.clear()
+        self._originais_do_banco = False
         self.tree_refs.clear()
 
     # --------------------------------------------------- carregar Supabase --
@@ -1429,6 +1433,7 @@ class GrandChaseApp(ctk.CTk):
 
             self.modified = False
             self._versao = 0
+            self._originais_do_banco = True
             self._ler_nivel_chaser()
             self._atualizar_cards()
             self._ler_preferencia()
@@ -1979,10 +1984,10 @@ class GrandChaseApp(ctk.CTk):
         self.modified = True
         self._versao += 1
 
-    def _snapshot_dados(self):
+    def _snapshot_dados(self, dfs=None):
         """Copia dos dataframes para enviar (sem depender da UI durante o envio)."""
         dados = {}
-        for aba, df in self.dfs.items():
+        for aba, df in (self.dfs if dfs is None else dfs).items():
             if df is None or df.empty:
                 continue
             limpo = df.astype(object).where(pd.notnull(df), None)
@@ -2102,19 +2107,22 @@ class GrandChaseApp(ctk.CTk):
         self._versao_salva = self._versao
         self.status("Salvando no Supabase…")
         dados = self._snapshot_dados()
+        originais = (self._snapshot_dados(self.originals)
+                     if self._originais_do_banco else None)
 
         # O GC nao pode rodar na thread de rede: ele pode finalizar um
         # tkinter.font.Font e travar o Tcl (GIL x Tcl). Desligamos durante o
         # envio e religamos na thread da UI.
         gc.collect()
         gc.disable()
-        threading.Thread(target=self._salvar_em_segundo_plano, args=(dados,),
-                         daemon=True).start()
+        threading.Thread(target=self._salvar_em_segundo_plano,
+                         args=(dados, originais), daemon=True).start()
 
-    def _salvar_em_segundo_plano(self, dados):
+    def _salvar_em_segundo_plano(self, dados, originais=None):
         """Executa APENAS a parte de rede (nada de Tk nesta thread)."""
         try:
-            resultado = salvar_conta(self.supabase, self.user_id, dados)
+            resultado = salvar_conta(self.supabase, self.user_id, dados,
+                                     originais)
             self._fila_salvamento.put(("ok", resultado))
         except Exception as erro:
             falha("[Salvar] enviar ao Supabase", erro)

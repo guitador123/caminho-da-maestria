@@ -76,11 +76,13 @@ ou do `supabase` pode quebrar os PCs da guilda no próximo `atualizar.bat`.
 - [x] Revisada (23/11): só os 25 nomes de personagem do jogo e valores de progresso; sem nick, e-mail, contato ou metadados pessoais. Pode ficar (é o modelo de onde saiu o `opcoes.py`)
 - [x] Risco real encontrado: no modo git, "Salvar Excel" gravava POR CIMA dessa planilha versionada (os dados reais iriam para o GitHub num `git add .`). Agora o app sempre pergunta onde salvar quando o destino é a planilha-modelo
 
-### 6. Salvamento atômico e só do que mudou
+### 6. Salvamento atômico e só do que mudou ✅
 Cada salvamento envia a conta inteira (25 personagens × todas as tabelas),
 sem transação. Se uma tabela falhar no meio, as outras já foram gravadas.
-- [ ] Enviar só as linhas alteradas (comparando com `self.originals`)
-- [ ] Gravar tudo numa função RPC no Postgres (uma transação só)
+- [x] Enviar só as linhas alteradas (`so_alteradas()` compara com `self.originals` quando vieram do banco; importado do Excel continua mandando tudo)
+- [x] Gravar tudo numa função RPC no Postgres (`sql/salvar_conta.sql`, aplicado em 23/11): 1 requisição, 1 transação, `security invoker` (RLS vale), não troca dono nem personagem, recusa `id` de outra conta
+- [x] Sem a função no banco, o app salva do jeito antigo e registra no log
+- [x] `teste_salvar_atomico.py`: anon recusado; de 25 personagens só 1 enviado; lote com 1 linha inválida não grava nem a boa; id falso recusado; dono e personagem não mudam
 - **Pronto quando:** uma falha no meio do salvamento não deixa o banco pela metade.
 
 ### 7. Parar de engolir erros (`except Exception: pass`) ✅
