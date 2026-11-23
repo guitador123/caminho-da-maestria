@@ -47,7 +47,6 @@ URL_DOWNLOAD = f"{SITE}/releases/latest/download/{NOME_ASSET}"
 ARQUIVO_VERSAO = os.path.join("assets", "versao.txt")
 TIMEOUT = 5           # segundos de espera pela rede (o app nao pode
                       # ficar segurado na tela de atualizacao)
-NOME_ASSET = "Caminho da Maestria"   # prefixo do .zip da Release
 
 
 # ------------------------------------------------------------- ferramentas
@@ -193,9 +192,29 @@ def _atualizar_com_git():
         subprocess.run([python, "-m", "pip", "install", "-r",
                         "requirements.txt", "--quiet"], cwd=pasta,
                        capture_output=True, timeout=900)
-    # quem abre o programa de novo e o auxiliar (o app vai sair)
-    _agendar_troca(pasta, copiar=False)
+    # quem abre o programa de novo e o auxiliar (o app vai sair).
+    # Num clone NAO existe o .exe: abre de novo pelo Python.
+    _agendar_troca(pasta, copiar=False, abrir=_comando_python())
     return True
+
+
+def _comando_python():
+    """Linha de comando (cmd) que abre o app pelo Python (modo clone)."""
+    pasta = _app_dir()
+    python = ""
+    for nome in ("pythonw.exe", "python.exe"):
+        candidato = os.path.join(pasta, ".venv", "Scripts", nome)
+        if os.path.exists(candidato):
+            python = candidato
+            break
+    if not python:
+        python = sys.executable
+        # prefere o pythonw (sem a janela preta do console)
+        pythonw = os.path.join(os.path.dirname(python), "pythonw.exe")
+        if os.path.exists(pythonw):
+            python = pythonw
+    script = os.path.join(pasta, "app_grandchase.py")
+    return f'start "" /d "{pasta}" "{python}" "{script}"'
 
 
 def _sha_da_release(tag):
@@ -269,16 +288,21 @@ def _atualizar_com_release():
         return False
 
 
-def _agendar_troca(novos, copiar=True):
+def _agendar_troca(novos, copiar=True, abrir=None):
     """Cria o script que troca os arquivos e abre o programa de novo.
 
     O Windows nao deixa trocar um arquivo que esta em uso, entao a troca
     so pode acontecer DEPOIS que o programa atual fecha. Por isso quem
     abre de novo e este script (e nao o app).
+
+    `abrir` e a linha (cmd) que abre o programa; o padrao e o .exe. Mesmo
+    se a troca falhar, o programa (a versao antiga) e aberto de novo.
     """
     destino = _app_dir()
     auxiliar = os.path.join(tempfile.gettempdir(), "cm_trocar_arquivos.cmd")
     exe = os.path.join(destino, "Caminho da Maestria.exe")
+    if abrir is None:
+        abrir = f'start "" "{exe}"'
     if copiar:
         copia = (f'robocopy "{novos}" "{destino}" /MIR /XF login_prefs.json '
                  "/NFL /NDL /NJH /NJS /NP >nul\r\n"
@@ -292,7 +316,8 @@ def _agendar_troca(novos, copiar=True):
     else:
         copia = ""
         limpeza = ""
-    with open(auxiliar, "w", encoding="utf-8", newline="\r\n") as arquivo:
+    # newline="": as linhas ja tem \r\n (senao viraria \r\r\n)
+    with open(auxiliar, "w", encoding="utf-8", newline="") as arquivo:
         arquivo.write(
             "@echo off\r\n"
             "setlocal enabledelayedexpansion\r\n"
@@ -300,12 +325,16 @@ def _agendar_troca(novos, copiar=True):
             "rem espera o programa atual fechar, troca os arquivos e abre\r\n"
             "ping 127.0.0.1 -n 5 >nul\r\n"
             ":copia\r\n"
-            + copia +
-            f'start "" "{exe}"\r\n'
+            + copia
+            + abrir + "\r\n"
             + limpeza +
             f'del /q "{auxiliar}" >nul 2>&1\r\n'
+            "exit /b 0\r\n"
             ":falhou\r\n"
-            "echo nao foi possivel trocar os arquivos >nul 2>&1\r\n")
+            "rem a troca falhou: abre a versao que ja estava instalada\r\n"
+            + abrir + "\r\n"
+            + limpeza +
+            f'del /q "{auxiliar}" >nul 2>&1\r\n')
     subprocess.Popen(["cmd", "/c", auxiliar], creationflags=0x08000000)
 
 
@@ -352,14 +381,24 @@ def _splash(texto):
 def verificar_e_atualizar(mostrar=True):
     """Confere o GitHub e atualiza se precisar. Devolve True se atualizou."""
     splash = _splash("Verificando atualizacoes...") if mostrar else None
+
+    def fechar_splash():
+        if splash is not None:
+            try:
+                splash.destroy()
+            except Exception:
+                pass
+
     try:
         sha_local = versao_local()
         if tem_git():
             # num clone: compara com o commit do GitHub
             sha_remoto, mensagem = commit_remoto()
             if not sha_remoto:
+                fechar_splash()
                 return False
             if sha_local and sha_local[:40] == sha_remoto[:40]:
+                fechar_splash()
                 return False   # ja esta na ultima
         else:
             # no .exe: compara com a ULTIMA RELEASE (assim o app nao fica
@@ -367,24 +406,21 @@ def verificar_e_atualizar(mostrar=True):
             sha_release = _versao_da_release()
             if not sha_release:
                 _registrar("nao ha release nova (ou sem rede)")
+                fechar_splash()
                 return False
             if sha_local and sha_local.lower().startswith(sha_release):
+                fechar_splash()
                 return False   # ja esta na ultima release
             mensagem = "versao nova disponivel"
     except Exception:
+        fechar_splash()
         return False      # sem internet/GitHub: segue normal
-    finally:
-        if splash is not None:
-            try:
-                splash.destroy()
-            except Exception:
-                pass
 
-    # tem coisa nova: atualiza
+    # tem coisa nova: avisa na MESMA janelinha (ela continua aberta) e
+    # atualiza
     if splash is not None:
         try:
-            splash.configure(bg="#16112b")
-            splash.children[0].configure(
+            splash.children[next(iter(splash.children))].configure(
                 text=f"Nova versao disponivel!\n{mensagem}\nAtualizando...")
             splash.update()
         except Exception:
@@ -395,12 +431,8 @@ def verificar_e_atualizar(mostrar=True):
     except Exception:
         deu_certo = False
 
+    fechar_splash()
     if deu_certo:
-        if splash is not None:
-            try:
-                splash.destroy()
-            except Exception:
-                pass
         _registrar("atualizacao aplicada; o programa vai abrir de novo")
         # o app sai agora: quem abre de novo e o auxiliar (que ja foi
         # criado). Se o app abrisse agora, os arquivos ficariam em uso e

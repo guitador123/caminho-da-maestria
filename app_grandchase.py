@@ -1005,81 +1005,6 @@ class GrandChaseApp(ctk.CTk):
         except Exception as erro:
             _registrar(f"[Perfil] Erro no logout: {erro}")
 
-    # ------------------------------- opcao do modo da Missao Rapida ----------
-    def _rotulo_modo_missao(self):
-        """Texto da opcao (mostra o modo que esta ativo)."""
-        if self.missao_modo == MODO_MISSAO_CARD:
-            return "Modo: clicar no card"
-        return "Modo: painel (janela)"
-
-    def _desenhar_chave_missao(self):
-        """Check (abaixo do botao Missao Rapida) que escolhe o MODO."""
-        lay = self.lay
-        x1, y1, x2, y2 = lay.caixa(tv.MISSAO_MODO)
-        tamanho = lay.f(17)
-        cy = (y1 + y2) / 2
-
-        self._fotos_extra = getattr(self, "_fotos_extra", {})
-        self._fotos_extra["missao_caixa"] = ImageTk.PhotoImage(
-            tv.caixa_check("#241d3d", "#6d5fa8", (tamanho, tamanho), raio=5))
-        self._fotos_extra["missao_caixa_marcada"] = ImageTk.PhotoImage(
-            tv.caixa_check("#22c55e", "#22c55e", (tamanho, tamanho), raio=5))
-
-        item_caixa = self.canvas.create_image(
-            x1, cy - tamanho / 2, anchor="nw",
-            image=self._fotos_extra["missao_caixa"], tags=("missao_modo",))
-        item_v = self.canvas.create_text(
-            x1 + tamanho / 2, cy, text="\u2713", font=self._fonte(11, "bold"),
-            fill="#08130d", anchor="center", state="hidden", tags=("missao_modo",))
-        item_texto = self._texto(x1 + tamanho + lay.f(9), cy,
-                                 self._rotulo_modo_missao(), 11,
-                                 cor=tv.CORES["suave"], anchor="w")
-        self.canvas.itemconfig(item_texto, tags=("missao_modo",))
-
-        self.canvas.tag_bind("missao_modo", "<Button-1>",
-                             lambda e: self.alternar_modo_missao())
-        self.canvas.tag_bind("missao_modo", "<Enter>",
-                             lambda e: self.canvas.configure(cursor="hand2"))
-        self.canvas.tag_bind("missao_modo", "<Leave>",
-                             lambda e: self.canvas.configure(cursor=""))
-
-        self.itens_chave_missao = {"caixa": item_caixa, "v": item_v,
-                                   "texto": item_texto}
-        self._atualizar_chave_missao()
-
-    def _atualizar_chave_missao(self):
-        """Pinta o check conforme o modo ativo."""
-        marcado = self.missao_modo == MODO_MISSAO_CARD
-        item_caixa = self.itens_chave_missao.get("caixa")
-        if item_caixa is not None:
-            self.canvas.itemconfigure(
-                item_caixa,
-                image=self._fotos_extra.get(
-                    "missao_caixa_marcada" if marcado else "missao_caixa"))
-        item_v = self.itens_chave_missao.get("v")
-        if item_v is not None:
-            self.canvas.itemconfigure(item_v,
-                                      state="normal" if marcado else "hidden")
-        item_texto = self.itens_chave_missao.get("texto")
-        if item_texto is not None:
-            self.canvas.itemconfigure(item_texto,
-                                      text=self._rotulo_modo_missao())
-
-    def alternar_modo_missao(self):
-        """Alterna entre o MODO PAINEL e o MODO CARD (so um por vez)."""
-        self.missao_modo = (MODO_MISSAO_CARD if self.missao_modo == MODO_MISSAO_JANELA
-                            else MODO_MISSAO_JANELA)
-        self._atualizar_chave_missao()
-        if self.missao_rapida:
-            if self.missao_modo == MODO_MISSAO_JANELA:
-                self._abrir_painel_missao()
-            else:
-                self._fechar_painel_missao()
-        self.status("Missao rapida: " +
-                    ("clicando no CARD (o card nao abre a edicao)."
-                     if self.missao_modo == MODO_MISSAO_CARD
-                     else "no PAINEL (o card continua abrindo a edicao)."))
-
     # ------------------------------------------------- barra de filtros --
     def _desenhar_filtros(self):
         """Desenha a barra de filtros (acima dos cards)."""
@@ -2317,20 +2242,6 @@ class GrandChaseApp(ctk.CTk):
             self.salvar_supabase()
         else:
             self.status("Dungeons semanais zeradas (use 'Salvar' para gravar).")
-
-    def alternar_missao(self):
-        """Liga/desliga o filtro 'Missao Rapida' (prontos para a missao)."""
-        estado = not self.missao_rapida
-        self.missao_rapida = estado
-        for nome_aba in list(self.tree_refs.keys()):
-            self._refrescar_tabela(nome_aba, self.tree_refs[nome_aba]["busca"].get())
-        self._atualizar_cards()
-        self._marcar_botao("topo4", estado)
-        gravado = self._salvar_preferencia("missao_rapida", estado)
-        texto = "Missao Rapida " + ("ativada" if estado else "desativada")
-        if not gravado:
-            texto += " (so nesta sessao: coluna missao_rapida ausente no user_profiles)"
-        self.status(texto)
 
     # --------------------------------------------------- missao rapida ----
     def _coluna_missao(self, chave):
