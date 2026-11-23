@@ -38,6 +38,7 @@ from supabase_db import get_supabase, carregar_personagens, upsert_personagem, \
 from opcoes import obter_opcoes, coluna_banco, canonizar_aba, normalizar, chave_semanal
 import tema_visual as tv
 import caminhos
+from registro import falha, registrar
 from card_personagem import (CardPersonagem, LARGURA as CARD_LARGURA,
                               ESCALA_MAX, TORRE_MAX,
                               ALTURA_CARD_BASE, _fracao,
@@ -148,25 +149,9 @@ def _mesmo_arquivo(a, b):
     except (TypeError, ValueError):
         return False
 DB_FILE = caminhos.banco_sqlite()
-LOG_PATH = caminhos.arquivo_log()
 
-
-def _registrar(mensagem):
-    """Print + log em arquivo (o .exe roda sem console).
-
-    ⚠ No executavel SEM console o `sys.stdout` e None → o `print` levanta
-    excecao e o log nunca era gravado. Por isso o print vai protegido.
-    """
-    try:
-        print(mensagem)
-    except Exception:
-        pass
-    if getattr(sys, "frozen", False):
-        try:
-            with open(LOG_PATH, "a", encoding="utf-8") as arquivo:
-                arquivo.write(f"{time.strftime('%H:%M:%S')} {mensagem}\n")
-        except Exception:
-            pass
+# Print + log em arquivo (o .exe roda sem console). Ver registro.py.
+_registrar = registrar
 
 
 def _colunas_conhecidas(df, logica):
@@ -309,8 +294,10 @@ class GrandChaseApp(ctk.CTk):
         if self._job_fundo is not None:
             try:
                 self.after_cancel(self._job_fundo)
+            except tk.TclError:
+                pass                      # janela ja fechada
             except Exception:
-                pass
+                falha("cancelar o redesenho do fundo")
         self._job_fundo = self.after(140, self._redesenhar)
 
     def _redesenhar(self):
@@ -329,7 +316,7 @@ class GrandChaseApp(ctk.CTk):
             self._montar_tela()
             _registrar(f"[Cenario] redesenhado ({largura}x{altura})")
         except Exception as e:
-            _registrar(f"[Cenario] Erro ao redesenhar: {e}")
+            falha("[Cenario] redesenhar", e)
 
     def _tamanho_alvo(self):
         """Tamanho a usar para o cenario (real da janela ou o da geometria)."""
@@ -341,7 +328,10 @@ class GrandChaseApp(ctk.CTk):
             geo = self.geometry().split("+")[0]
             l, a = geo.lower().split("x")
             return max(int(l), 400), max(int(a), 300)
+        except tk.TclError:
+            return tv.DESIGN_W, tv.DESIGN_H
         except Exception:
+            falha("ler o tamanho da janela")
             return tv.DESIGN_W, tv.DESIGN_H
 
     def _montar_tela(self):
@@ -362,7 +352,7 @@ class GrandChaseApp(ctk.CTk):
                 self.canvas.create_image(0, 0, anchor="nw", image=self.paineis_tk,
                                          tags="paineis")
         except Exception as e:
-            _registrar(f"[Cenario] Erro ao gerar: {e}")
+            falha("[Cenario] gerar", e)
 
         self._desenhar_textos()
         self._desenhar_cards()
@@ -382,8 +372,10 @@ class GrandChaseApp(ctk.CTk):
         if item:
             try:
                 self.canvas.coords(item, 0, self.canvas.canvasy(0))
+            except tk.TclError:
+                pass                      # janela ja fechada
             except Exception:
-                pass
+                falha("fixar o cenario")
 
     # ------------------------------------------------------------- cards ---
     def _dados_personagem(self, nome):
@@ -538,7 +530,7 @@ class GrandChaseApp(ctk.CTk):
             from janela_personagem import JanelaPersonagem
             JanelaPersonagem(self, dados.get("nome"))
         except Exception as e:
-            _registrar(f"[Personagem] Erro ao abrir a edicao: {e}")
+            falha("[Personagem] abrir a edicao", e)
             self.status(f"Erro ao abrir a edicao de {dados.get('nome')}: {e}")
 
     def _atualizar_card(self, nome):
@@ -550,7 +542,7 @@ class GrandChaseApp(ctk.CTk):
                     card.atualizar(self._dados_personagem(str(nome)))
                     return True
                 except Exception as e:
-                    _registrar(f"[Personagem] Erro ao redesenhar o card: {e}")
+                    falha("[Personagem] redesenhar o card", e)
                     return False
         return False
 
@@ -560,8 +552,10 @@ class GrandChaseApp(ctk.CTk):
             for item in getattr(card, "_itens", []):
                 try:
                     self.canvas.delete(item)
+                except tk.TclError:
+                    pass                      # janela ja fechada
                 except Exception:
-                    pass
+                    falha("apagar os cards")
         self._desenhar_cards()
 
     def _atualizar_todos_os_cards(self):
@@ -578,7 +572,7 @@ class GrandChaseApp(ctk.CTk):
             try:
                 card.atualizar(self._dados_personagem(str(nome)))
             except Exception as erro:
-                _registrar(f"[Card] Erro ao redesenhar o card: {erro}")
+                falha("[Card] redesenhar o card", erro)
 
     # ------------------------------------------------------------ textos ----
     def _aplicar_icone(self):
@@ -802,8 +796,10 @@ class GrandChaseApp(ctk.CTk):
         # atualizacao e o texto fica sobreposto)
         try:
             self.canvas.delete("perfil")
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("apagar o perfil")
         lay = self.lay
         x1, y1, x2, y2 = lay.caixa(tv.PERFIL_PAINEL)
         cx, cy, raio = lay.ponto(tv.PERFIL_AVATAR[:2]) + (lay.f(tv.PERFIL_AVATAR[2]),)
@@ -831,7 +827,7 @@ class GrandChaseApp(ctk.CTk):
                                          image=self._foto(arte),
                                          tags=("perfil",))
             except Exception:
-                pass
+                falha("desenhar o icone do chaser")
 
         # --- a foto (circulo): uma das 25 imagens de perfil ------------
         try:
@@ -850,7 +846,7 @@ class GrandChaseApp(ctk.CTk):
             self.canvas.create_image(cx, cy, anchor="center", image=self._foto(arte),
                                     tags=("perfil",))
         except Exception:
-            pass
+            falha("desenhar o avatar do perfil")
 
         # --- a barra de EXP (preenche com o nivel do chaser) -----------
         ex1, ey1, ex2, eh = lay.caixa(tv.PERFIL_EXP)
@@ -930,14 +926,17 @@ class GrandChaseApp(ctk.CTk):
                 self._janela_perfil.lift()
                 self._janela_perfil.focus_force()
                 return self._janela_perfil
+            except tk.TclError:
+                self._janela_perfil = None
             except Exception:
+                falha("trazer a janela de perfil")
                 self._janela_perfil = None
         try:
             from janela_perfil import JanelaPerfil
             self._janela_perfil = JanelaPerfil(self)
             return self._janela_perfil
         except Exception as erro:
-            _registrar(f"[Perfil] Erro ao abrir: {erro}")
+            falha("[Perfil] abrir", erro)
             self.status(f"Erro ao abrir o perfil: {erro}")
             return None
 
@@ -949,15 +948,17 @@ class GrandChaseApp(ctk.CTk):
                     self._painel_doacao.fechar()
                     self._painel_doacao = None
                     return None
+            except tk.TclError:
+                pass                      # janela ja fechada
             except Exception:
-                pass
+                falha("fechar o painel de doacao")
             self._painel_doacao = None
         try:
             from janela_doacao import PainelDoacao
             self._painel_doacao = PainelDoacao(self)
             return self._painel_doacao
         except Exception as erro:
-            _registrar(f"[Doacao] Erro ao abrir o painel: {erro}")
+            falha("[Doacao] abrir o painel", erro)
             self.status(f"Erro ao abrir o painel de apoio: {erro}")
             return None
 
@@ -972,7 +973,7 @@ class GrandChaseApp(ctk.CTk):
                                   "avatar": (self.perfil_personagem
                                              or self.perfil_avatar or None)})
         except Exception as erro:
-            _registrar(f"[Perfil] Erro ao salvar: {erro}")
+            falha("[Perfil] salvar", erro)
             return False
 
     def _ler_perfil(self):
@@ -998,9 +999,10 @@ class GrandChaseApp(ctk.CTk):
                         from janela_perfil import _de_base64
                         self.perfil_avatar_temp = _de_base64(self.perfil_avatar)
                     except Exception:
+                        falha("decodificar o avatar do perfil")
                         self.perfil_avatar_temp = None
         except Exception as erro:
-            _registrar(f"[Perfil] Erro ao ler: {erro}")
+            falha("[Perfil] ler", erro)
 
     def fazer_logout(self):
         """Sai da conta (volta para a tela de login)."""
@@ -1009,10 +1011,10 @@ class GrandChaseApp(ctk.CTk):
             try:
                 self.supabase.auth.sign_out()
             except Exception:
-                pass
+                falha("sair da conta (sign_out)")
             self.destroy()
         except Exception as erro:
-            _registrar(f"[Perfil] Erro no logout: {erro}")
+            falha("[Perfil] logout", erro)
 
     # ------------------------------------------------- barra de filtros --
     def _desenhar_filtros(self):
@@ -1271,8 +1273,10 @@ class GrandChaseApp(ctk.CTk):
         """CTk nao aceita width/height no place(): ajusta no configure."""
         try:
             widget.configure(width=max(1, int(largura)), height=max(1, int(altura)))
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("posicionar widget")
         widget.place(x=int(x), y=int(y))
 
     # ---------------------------------------------------------- status ------
@@ -1281,8 +1285,10 @@ class GrandChaseApp(ctk.CTk):
         try:
             if hasattr(self, "_item_status"):
                 self.canvas.itemconfig(self._item_status, text=str(texto))
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("atualizar a barra de status")
 
     # --------------------------------------------------- tema / arquivo -----
     def toggle_theme(self):
@@ -1349,6 +1355,7 @@ class GrandChaseApp(ctk.CTk):
         except PermissionError:
             messagebox.showerror("Erro", "Feche o arquivo Excel antes de abri-lo.")
         except Exception as e:
+            falha("[Excel] carregar", e)
             messagebox.showerror("Erro ao carregar Excel", str(e))
 
     def _limpar_abas(self):
@@ -1357,8 +1364,10 @@ class GrandChaseApp(ctk.CTk):
             for aba in list(self.abas_criadas):
                 try:
                     self.notebook.delete(aba)
+                except tk.TclError:
+                    pass                      # janela ja fechada
                 except Exception:
-                    pass
+                    falha("limpar as abas")
         self.abas_criadas.clear()
         self.dfs.clear()
         self.originals.clear()
@@ -1380,6 +1389,7 @@ class GrandChaseApp(ctk.CTk):
                     nota_estrutura = (" | sem permissao para criar a estrutura "
                                       "(rode o SQL do HANDOFF.md)")
             except Exception:
+                falha("garantir a estrutura da conta")
                 nota_estrutura = ""
 
             personagens = carregar_personagens(self.supabase, self.user_id)
@@ -1428,6 +1438,7 @@ class GrandChaseApp(ctk.CTk):
             self.status(f"Carregado do Supabase: {len(personagens)} personagens "
                         f"| {total} registros nas abas" + nota_estrutura)
         except Exception as e:
+            falha("[Supabase] carregar a conta", e)
             messagebox.showerror("Erro Supabase", str(e))
             self.status("Erro ao conectar com Supabase")
 
@@ -1612,14 +1623,19 @@ class GrandChaseApp(ctk.CTk):
         """
         try:
             yview = self.canvas.yview()
+        except tk.TclError:
+            yview = (0.0, 1.0)
         except Exception:
+            falha("ler a rolagem")
             yview = (0.0, 1.0)
         self._reposicionar_cards()
         self._redesenhar_filtros()
         try:
             self.canvas.yview_moveto(yview[0])
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("restaurar a rolagem")
 
     def _reposicionar_cards(self):
         """Mostra/esconde e move os cards conforme o filtro (rapido)."""
@@ -1670,15 +1686,19 @@ class GrandChaseApp(ctk.CTk):
             self.canvas.configure(scrollregion=(0, 0, max(largura_janela,
                                                           largura_total + 2 * margem),
                                                 total))
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("reposicionar os cards")
 
     def _redesenhar_filtros(self):
         """Redesenha a barra de filtros (aparece o CHECK da opcao ativa)."""
         try:
             self.canvas.delete("filtros")
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("apagar os filtros")
         self._desenhar_filtros()
 
     # ----------------------------------------------- filtro / missao rapida
@@ -1939,7 +1959,10 @@ class GrandChaseApp(ctk.CTk):
         for chave, dados in self.itens_valores.items():
             try:
                 valores[chave] = self.canvas.itemcget(dados[0], "text")
+            except tk.TclError:
+                valores[chave] = ""
             except Exception:
+                falha("ler os valores da tela")
                 valores[chave] = ""
         return valores
 
@@ -2010,6 +2033,7 @@ class GrandChaseApp(ctk.CTk):
             from supabase_db import colunas_salvaveis
             return "nivelchaser" in colunas_salvaveis(self.supabase, "personagens")
         except Exception:
+            falha("conferir a coluna nivelchaser")
             return False
 
     def definir_nivel_chaser(self, valor):
@@ -2053,7 +2077,7 @@ class GrandChaseApp(ctk.CTk):
             from janela_nivel import JanelaNivelChaser
             JanelaNivelChaser(self)
         except Exception as erro:
-            _registrar(f"[Nivel] Erro ao abrir a edicao: {erro}")
+            falha("[Nivel] abrir a edicao", erro)
             self.status(f"Erro ao abrir a edicao do nivel: {erro}")
 
     def salvar_supabase(self):
@@ -2093,6 +2117,7 @@ class GrandChaseApp(ctk.CTk):
             resultado = salvar_conta(self.supabase, self.user_id, dados)
             self._fila_salvamento.put(("ok", resultado))
         except Exception as erro:
+            falha("[Salvar] enviar ao Supabase", erro)
             self._fila_salvamento.put(("erro", erro))
 
     def _verificar_salvamento(self):
@@ -2104,6 +2129,7 @@ class GrandChaseApp(ctk.CTk):
         except queue.Empty:
             pass
         except Exception as erro:
+            falha("[Salvar] aplicar o resultado", erro)
             self.status(f"Erro ao ler o resultado do salvamento: {erro}")
         self.after(120, self._verificar_salvamento)
 
@@ -2113,7 +2139,7 @@ class GrandChaseApp(ctk.CTk):
         try:
             gc.collect()
         except Exception:
-            pass
+            falha("coletar o lixo apos salvar")
 
         self._salvando = False
 
@@ -2179,6 +2205,7 @@ class GrandChaseApp(ctk.CTk):
         except PermissionError:
             messagebox.showerror("Erro", "Feche o arquivo Excel antes de salvar.")
         except Exception as e:
+            falha("[Excel] salvar", e)
             messagebox.showerror("Erro ao salvar", str(e))
 
     # -------------------------------------------------------- SQLite -------
@@ -2194,6 +2221,7 @@ class GrandChaseApp(ctk.CTk):
             self.status(f"Sincronizado com SQLite: {DB_FILE}")
             messagebox.showinfo("Sucesso", f"Dados exportados para {DB_FILE}")
         except Exception as e:
+            falha("[SQLite] salvar", e)
             messagebox.showerror("Erro SQLite", str(e))
 
     def _sair(self):
@@ -2213,14 +2241,18 @@ class GrandChaseApp(ctk.CTk):
         """
         try:
             self.canvas.delete("all")
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("limpar o canvas")
         for atributo in ("cenario_tk",):
             if hasattr(self, atributo):
                 try:
                     setattr(self, atributo, None)
+                except tk.TclError:
+                    pass                      # janela ja fechada
                 except Exception:
-                    pass
+                    falha("liberar imagens")
         if hasattr(self, "_fotos_icones"):
             self._fotos_icones.clear()
         if hasattr(self, "_fotos_destaque"):
@@ -2437,14 +2469,17 @@ class GrandChaseApp(ctk.CTk):
                 self._painel_missao.lift()
                 self._painel_missao.focus_force()
                 return self._painel_missao
+            except tk.TclError:
+                self._painel_missao = None
             except Exception:
+                falha("trazer o painel da missao")
                 self._painel_missao = None
         try:
             from janela_missao_rapida import JanelaMissaoRapida
             self._painel_missao = JanelaMissaoRapida(self)
             return self._painel_missao
         except Exception as erro:
-            _registrar(f"[Missao] Erro ao abrir o painel: {erro}")
+            falha("[Missao] abrir o painel", erro)
             self.status(f"Erro ao abrir o painel da missao rapida: {erro}")
             return None
 
@@ -2453,8 +2488,10 @@ class GrandChaseApp(ctk.CTk):
         if painel is not None:
             try:
                 painel.destroy()
+            except tk.TclError:
+                pass                      # janela ja fechada
             except Exception:
-                pass
+                falha("fechar o painel da missao")
         self._painel_missao = None
 
     def _atalho_missao(self, evento):
@@ -2499,7 +2536,7 @@ class GrandChaseApp(ctk.CTk):
             if linhas and "missao_rapida" in linhas[0]:
                 self.missao_rapida = bool(linhas[0]["missao_rapida"])
         except Exception:
-            pass
+            falha("ler preferencia do perfil")
 
     def _coluna_perfil_existe(self, coluna):
         """A coluna opcional existe no user_profiles? (sonda, com cache)."""
@@ -2512,7 +2549,10 @@ class GrandChaseApp(ctk.CTk):
                 self.supabase.table("user_profiles").select(coluna) \
                     .limit(1).execute()
                 cache[coluna] = True
-            except Exception:
+            except Exception as erro:
+                from supabase_db import coluna_ausente
+                if not coluna_ausente(erro):
+                    falha("conferir coluna do perfil", erro)
                 cache[coluna] = False
         return cache[coluna]
 
@@ -2533,7 +2573,7 @@ class GrandChaseApp(ctk.CTk):
                 self.ultimo_personagem_missao = \
                     linhas[0]["missao_rapida_personagem"]
         except Exception:
-            pass
+            falha("ler o ultimo personagem da missao")
 
     def _lembrar_personagem_missao(self, nome):
         """Guarda o ultimo personagem usado (o painel ja abre nele)."""
@@ -2548,6 +2588,7 @@ class GrandChaseApp(ctk.CTk):
                 .eq("id", self.user_id).execute()
             return True
         except Exception:
+            falha("lembrar o personagem da missao")
             return False
 
     def _salvar_preferencia(self, nome, valor):
@@ -2559,6 +2600,7 @@ class GrandChaseApp(ctk.CTk):
                 .eq("id", self.user_id).execute()
             return True
         except Exception:
+            falha("salvar preferencia do perfil")
             return False
 
 
@@ -2657,8 +2699,10 @@ def _estilizar_ttk():
         estilo = ttk.Style()
         try:
             estilo.theme_use("clam")
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("escolher o tema ttk")
         estilo.configure("TFrame", background="#14181d")
         estilo.configure("Treeview",
                          background="#171b21",
@@ -2698,7 +2742,7 @@ def _estilizar_ttk():
                          selectbackground="#2f80ed",
                          selectforeground="#ffffff")
     except Exception:
-        pass
+        falha("estilizar o ttk")
 
 
 # ---------------------------------------------------------------------------

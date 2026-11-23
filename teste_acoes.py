@@ -79,7 +79,9 @@ def main(argv):
     if df_sem is None or df_sem.empty:
         print("   FALHOU: aba Semanais vazia")
         return 1
-    antes = {c: df_sem[c].iloc[0] for c in df_sem.columns if c != "Nome"}
+    # copia a coluna INTEIRA (linha a linha): restaurar so o valor da 1a
+    # linha deixava todas as linhas com o mesmo id e o salvamento falhava
+    antes = {c: df_sem[c].copy() for c in df_sem.columns if c != "Nome"}
     app.zerar_dungeons()
     colunas = [c for c in df_sem.columns if c != "Nome"]
     ainda = [c for c in colunas if str(df_sem[c].iloc[0]).strip().lower() == "verdadeiro"]

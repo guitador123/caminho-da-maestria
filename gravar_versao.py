@@ -35,8 +35,10 @@ def commit_atual():
         sha = resultado.stdout.strip()
         if sha:
             return sha[:40]
-    except Exception:
-        pass
+        print(f"AVISO: git rev-parse nao devolveu o commit: "
+              f"{resultado.stderr.strip()}")
+    except Exception as erro:
+        print(f"AVISO: nao deu para ler o commit ({erro})")
     return ""
 
 

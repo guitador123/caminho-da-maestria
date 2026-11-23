@@ -25,6 +25,7 @@ import customtkinter as ctk
 import caminhos
 
 from opcoes import obter_opcoes
+from registro import falha
 
 ABA_GERAL = "Geral"
 ABA_PECAS = "Peças (Void)"
@@ -484,5 +485,7 @@ class JanelaPersonagem(ctk.CTkToplevel):
         try:
             self.lift()
             self.focus_force()
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("focar a janela do personagem")

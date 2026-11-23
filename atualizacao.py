@@ -62,8 +62,14 @@ def _registrar(texto):
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
         with open(LOG, "a", encoding="utf-8") as arquivo:
             arquivo.write(f"{datetime.now():%d/%m %H:%M:%S} | {texto}\n")
-    except Exception:
-        pass
+    except OSError:
+        pass        # sem onde gravar: o log e o ultimo recurso
+
+
+def _falhou(contexto):
+    """Registra no log a excecao atual (tipo e mensagem)."""
+    erro = sys.exc_info()[1]
+    _registrar(f"ERRO {contexto}: {type(erro).__name__}: {erro}")
 
 
 def _app_dir():
@@ -100,11 +106,13 @@ def versao_local():
         try:
             return _git("rev-parse", "HEAD").stdout.strip()[:40]
         except Exception:
+            _falhou("ler o commit local (git)")
             return ""
     try:
         with open(_caminho_versao(), "r", encoding="utf-8") as arquivo:
             return arquivo.read().strip().splitlines()[0].strip()[:40]
     except Exception:
+        _falhou("ler assets/versao.txt")
         return ""
 
 
@@ -240,6 +248,7 @@ def _versao_da_release():
     try:
         texto = _atom(FEED_RELEASES)
     except Exception:
+        _falhou("ler o feed de releases")
         return ""
     melhor = ("", "")
     for entrada in re.findall(r"<entry>(.*?)</entry>", texto, re.S):
@@ -299,7 +308,7 @@ def _atualizar_com_release():
             try:
                 os.remove(arquivo)
             except OSError:
-                pass
+                _falhou("apagar o zip baixado")   # limpar_sobras tenta depois
         # a release pode ter uma pasta dentro do zip
         if not os.path.exists(os.path.join(destino, "Caminho da Maestria.exe")):
             for item in os.listdir(destino):
@@ -341,8 +350,10 @@ def _agendar_troca(novos, copiar=True, abrir=None, limpar=None):
     if abrir is None:
         abrir = f'start "" "{exe}"'
     if copiar:
+        # /XF: o /MIR apagaria da pasta do programa tudo que nao veio no
+        # zip, inclusive os logs (que ficam nessa mesma pasta no .exe)
         copia = (f'robocopy "{novos}" "{destino}" /MIR /XF login_prefs.json '
-                 "/NFL /NDL /NJH /NJS /NP >nul\r\n"
+                 "*.log *.log.1 /NFL /NDL /NJH /NJS /NP >nul\r\n"
                  "if errorlevel 8 (\r\n"
                  "    set /a tentativas+=1\r\n"
                  "    if !tentativas! GEQ 5 goto :falhou\r\n"
@@ -393,7 +404,7 @@ def reiniciar():
         subprocess.Popen(comando, cwd=_app_dir(),
                          creationflags=0x08000000 if os.name == "nt" else 0)
     except Exception:
-        pass
+        _falhou("reabrir o programa")
     os._exit(0)
 
 
@@ -412,6 +423,7 @@ def _splash(texto):
         janela.attributes("-topmost", True)
         return janela
     except Exception:
+        _falhou("abrir a janelinha")
         return None
 
 
@@ -439,9 +451,9 @@ def limpar_sobras(idade_minima=3600):
                 if not os.path.exists(caminho):
                     apagadas += 1
             except OSError:
-                pass
+                _falhou(f"limpar {nome}")
     except OSError:
-        pass
+        _falhou("listar a pasta temporaria")
     if apagadas:
         _registrar(f"limpeza: {apagadas} pasta(s) antiga(s) de atualizacao "
                    "apagada(s) do Temp")
@@ -458,7 +470,7 @@ def verificar_e_atualizar(mostrar=True):
             try:
                 splash.destroy()
             except Exception:
-                pass
+                _falhou("fechar a janelinha")
 
     try:
         sha_local = versao_local()
@@ -484,6 +496,7 @@ def verificar_e_atualizar(mostrar=True):
                 return False   # ja esta na ultima release
             mensagem = "versao nova disponivel"
     except Exception:
+        _falhou("verificar a versao")
         fechar_splash()
         return False      # sem internet/GitHub: segue normal
 
@@ -495,13 +508,24 @@ def verificar_e_atualizar(mostrar=True):
                 text=f"Nova versao disponivel!\n{mensagem}\nAtualizando...")
             splash.update()
         except Exception:
-            pass
+            _falhou("mostrar o aviso de versao nova")
 
     try:
         deu_certo = aplicar_atualizacao()
     except Exception:
+        _falhou("aplicar a atualizacao")
         deu_certo = False
 
+    if not deu_certo and splash is not None:
+        # avisa (sem travar) que vai seguir na versao atual
+        try:
+            splash.children[next(iter(splash.children))].configure(
+                text="Nao foi possivel atualizar agora.\n"
+                     "Abrindo a versao atual...")
+            splash.update()
+            time.sleep(2.5)
+        except Exception:
+            _falhou("mostrar o aviso de falha")
     fechar_splash()
     if deu_certo:
         _registrar("atualizacao aplicada; o programa vai abrir de novo")
@@ -518,11 +542,11 @@ def checar_em_segundo_plano(callback):
         try:
             verificar_e_atualizar(mostrar=False)
         except Exception:
-            pass
+            _falhou("verificar em segundo plano")
         try:
             callback()
         except Exception:
-            pass
+            _falhou("callback apos verificar")
 
     thread = threading.Thread(target=alvo, daemon=True)
     thread.start()

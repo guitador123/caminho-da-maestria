@@ -83,11 +83,16 @@ sem transação. Se uma tabela falhar no meio, as outras já foram gravadas.
 - [ ] Gravar tudo numa função RPC no Postgres (uma transação só)
 - **Pronto quando:** uma falha no meio do salvamento não deixa o banco pela metade.
 
-### 7. Parar de engolir erros (`except Exception: pass`)
+### 7. Parar de engolir erros (`except Exception: pass`) ✅
 São cerca de 70 no projeto. Muitos escondem bugs reais (o aviso do
 auto-update ficou quebrado por causa disso).
-- [ ] Trocar por `_registrar(...)` no log, no mínimo
-- [ ] Mostrar ao usuário os erros que importam (salvar, login, atualização)
+- [x] `registro.py`: `falha(contexto)` grava tipo, mensagem e traceback em `%LOCALAPPDATA%\Caminho da Maestria\gc_app.log` (uma vez por sessão; roda acima de 1 MB). Antes o log só era gravado no .exe e na pasta do programa
+- [x] ~100 `except` revistos em 21 arquivos: widget já fechado (`TclError`) segue em silêncio; qualquer outro erro vai para o log. Casos esperados (coluna opcional ausente no banco, arquivo opcional inexistente) não poluem o log
+- [x] Salvar, login, Excel e SQLite registram o erro além de mostrá-lo; atualização que falha mostra "Não foi possível atualizar agora" na janelinha antes de abrir a versão atual
+- [x] Varredura de segredos (`gerar_instalador.py` e `auditoria_instalador.py`) não pula mais em silêncio um arquivo que não conseguiu ler: bloqueia. `zerar_semanais_semanal.py` não diz mais "zerou tudo" se não conseguiu conferir
+- [x] O `robocopy /MIR` do auto-update apagava os `.log` da pasta do programa a cada atualização (justo quando o log de atualização mais importa); agora eles ficam (`/XF *.log *.log.1`)
+- [x] O log já pegou um bug escondido: o `teste_acoes.py` "restaurava" a aba Semanais copiando o `id` da 1ª linha para todas, e o salvamento falhava em silêncio (corrigido)
+- Obs.: `teste_edicao_supabase.py` já falhava antes (usa `.delete` num `CTkComboBox` do CustomTkinter 6); fica para o item 8
 - **Pronto quando:** nenhum `except` fica sem registro.
 
 ---

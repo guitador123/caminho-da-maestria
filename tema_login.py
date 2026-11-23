@@ -14,6 +14,7 @@ import colorsys
 from PIL import Image, ImageDraw, ImageFilter
 
 from caminhos import fundo_login
+from registro import falha
 
 DESIGN_W = 1000
 DESIGN_H = 760
@@ -66,6 +67,7 @@ def cor_de_destaque(caminho=None):
     try:
         img = Image.open(caminho).convert("RGBA").resize((128, 128), Image.LANCZOS)
     except Exception:
+        falha("calcular a cor de destaque")
         return "#2fd9a0"
 
     grupos = {}

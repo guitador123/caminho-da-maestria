@@ -493,8 +493,13 @@ alter table public.user_characters drop column if exists fragmentos_facis;
   ```
 - No **onedir do PyInstaller 6** os dados ficam em `_internal/` → por isso o
   módulo `caminhos.py` (usa `_internal` se existir).
-- `console=False` → os `print` não aparecem no `.exe`; `_registrar()` grava também
-  em `gc_app.log` (na pasta do .exe).
+- `console=False` → os `print` não aparecem no `.exe`. O log fica em
+  `%LOCALAPPDATA%\Caminho da Maestria\gc_app.log` (módulo `registro.py`;
+  vira `gc_app.log.1` acima de 1 MB). O auto-update tem o seu próprio
+  `log_atualizacao.log` na mesma pasta.
+- **Erros:** não use `except Exception: pass`. Use `falha("o que fazia")`
+  (registra tipo, mensagem e traceback, uma vez por sessão) e, para widget
+  que pode já ter sido fechado, `except tk.TclError: pass` antes.
 - Não rodar `pyinstaller` no Anaconda cheio de scipy/sympy/gmpy2 (erro `0xc0000139`).
   O spec já exclui esses pacotes.
 - Rebuild: `pyinstaller "Controle Grand Chase.spec" --noconfirm` e substituir a pasta

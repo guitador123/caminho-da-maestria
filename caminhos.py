@@ -37,7 +37,8 @@ def aplicar_icone(widget):
         if os.path.exists(caminho):
             widget.iconbitmap(caminho)
     except Exception:
-        pass
+        from registro import falha
+        falha("aplicar o icone da janela")
 
 
 def fundo_principal():
@@ -59,7 +60,9 @@ def banco_sqlite():
 
 
 def arquivo_log():
-    return os.path.join(app_dir(), "gc_app.log")
+    """Log do app (fora da pasta do programa, que pode nao ser gravavel)."""
+    from registro import ARQUIVO
+    return ARQUIVO
 
 
 def preferencias():

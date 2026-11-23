@@ -57,7 +57,10 @@ def revisar_bundle(pasta):
                     continue
                 with open(caminho, "rb") as arquivo_leitura:
                     dados = arquivo_leitura.read()
-            except Exception:
+            except OSError as erro:
+                # sem ler nao da para garantir que nao tem segredo: bloqueia
+                problemas.append((f"nao deu para ler ({erro})",
+                                  os.path.relpath(caminho, pasta)))
                 continue
             for nome, padrao in PROIBIDOS:
                 if padrao.search(dados):

@@ -26,6 +26,7 @@ import customtkinter as ctk
 
 import auth
 import caminhos
+from registro import falha
 import tema_login as tl
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -75,6 +76,7 @@ def _ler_prefs():
         with open(caminhos.preferencias(), "r", encoding="utf-8") as arquivo:
             return json.load(arquivo)
     except Exception:
+        falha("ler login_prefs.json")
         return {}
 
 
@@ -83,7 +85,7 @@ def _salvar_prefs(dados):
         with open(caminhos.preferencias(), "w", encoding="utf-8") as arquivo:
             json.dump(dados, arquivo, ensure_ascii=False, indent=2)
     except Exception:
-        pass
+        falha("gravar login_prefs.json")
 
 
 class LoginApp(ctk.CTk):
@@ -156,7 +158,7 @@ class LoginApp(ctk.CTk):
             self.canvas.create_image(0, 0, anchor="nw", image=self.cenario_tk,
                                      tags="cenario")
         except Exception as e:
-            print(f"[Login] Erro ao gerar o cenario: {e}")
+            falha("[Login] gerar o cenario", e)
 
         self._desenhar_cabecalho()
 
@@ -269,8 +271,10 @@ class LoginApp(ctk.CTk):
     def _posicionar(self, widget, x, y, largura, altura):
         try:
             widget.configure(width=max(1, int(largura)), height=max(1, int(altura)))
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("posicionar widget do login")
         widget.place(x=int(x), y=int(y))
 
     def _campos_do_modo(self):
@@ -400,21 +404,27 @@ class LoginApp(ctk.CTk):
     def _cor_status(self, cor):
         try:
             self.canvas.itemconfig(self._item_status, fill=cor)
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("cor do aviso do login")
 
     def _aviso(self, texto, cor=tl.CORES["erro"]):
         try:
             self.canvas.itemconfig(self._item_status, text=texto)
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("texto do aviso do login")
         self._cor_status(cor)
 
     def _status(self, texto):
         try:
             self.canvas.itemconfig(self._item_status, text=texto)
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("texto do status do login")
 
     def _estado_botoes(self, estado):
         # os botoes sao desenhados no canvas: o bloqueio e feito no clique
@@ -497,10 +507,14 @@ class LoginApp(ctk.CTk):
     def _viva(self):
         try:
             return bool(self.winfo_exists())
+        except tk.TclError:
+            return False
         except Exception:
+            falha("conferir se o login esta aberto")
             return False
 
     def _falhou(self, erro):
+        falha("[Login] acao da conta", erro)
         if not self._viva():
             return
         self._ocupado = False
@@ -614,12 +628,16 @@ class LoginApp(ctk.CTk):
         """
         try:
             self.canvas.delete("all")
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("limpar o canvas do login")
         try:
             self.cenario_tk = None
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("liberar o cenario do login")
         if hasattr(self, "_fotos"):
             self._fotos.clear()
 
@@ -661,7 +679,7 @@ def abrir_aplicativo():
         if verificar_e_atualizar():
             return          # atualizou e ja reiniciou
     except Exception:
-        pass
+        falha("[Atualizacao] verificar no inicio")   # segue na versao atual
 
     resultado = {}
     janela = LoginApp(resultado)

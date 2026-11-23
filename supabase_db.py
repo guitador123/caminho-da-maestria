@@ -21,6 +21,7 @@ import math
 from supabase import create_client, Client
 
 from opcoes import PERSONAGENS, coluna_banco, normalizar
+from registro import falha
 
 # CONFIGURACOES DO SUPABASE (substitua se necessario)
 SUPABASE_URL = "https://rtpwvfrdhrvtulvvctze.supabase.co"
@@ -113,6 +114,14 @@ def get_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
+def coluna_ausente(erro) -> bool:
+    """O erro do PostgREST e "essa coluna nao existe"? (esperado para as
+    colunas opcionais; qualquer outro erro, como falta de rede, nao e)."""
+    codigo = str(getattr(erro, "code", "") or "")
+    return (codigo in ("42703", "PGRST204")
+            or "does not exist" in str(erro).lower())
+
+
 def _extras(supabase: Client, logica: str) -> set:
     """Colunas opcionais que existem de fato no banco (cache por sessao)."""
     cache = getattr(supabase, "_extras_cache", None)
@@ -121,7 +130,7 @@ def _extras(supabase: Client, logica: str) -> set:
         try:
             supabase._extras_cache = cache
         except Exception:
-            pass
+            falha("guardar o cache de colunas")
     if logica in cache:
         return cache[logica]
     achadas = set()
@@ -129,8 +138,9 @@ def _extras(supabase: Client, logica: str) -> set:
         try:
             supabase.table(TABELAS[logica]).select(col).limit(1).execute()
             achadas.add(col)
-        except Exception:
-            pass
+        except Exception as erro:
+            if not coluna_ausente(erro):
+                falha("conferir colunas extras", erro)
     cache[logica] = achadas
     return achadas
 
@@ -311,6 +321,7 @@ def _insert_lote(supabase: Client, tabela: str, linhas: list) -> int:
             supabase.table(tabela).insert(linha).execute()
             criadas += 1
         except Exception:
+            falha("inserir linha avulsa")
             continue
     return criadas
 
@@ -332,6 +343,7 @@ def garantir_estrutura(supabase: Client, user_id: str) -> dict:
     try:
         existentes = carregar_personagens(supabase, user_id)
     except Exception:
+        falha("carregar personagens (estrutura)")
         resultado["erro"] = True
         return resultado
 
@@ -352,6 +364,7 @@ def garantir_estrutura(supabase: Client, user_id: str) -> dict:
         try:
             existentes = carregar_personagens(supabase, user_id)
         except Exception:
+            falha("recarregar personagens (estrutura)")
             return resultado
 
     # 2) uma linha por personagem em cada tabela filha
@@ -364,6 +377,7 @@ def garantir_estrutura(supabase: Client, user_id: str) -> dict:
         try:
             atuais = carregar(supabase, existentes)
         except Exception:
+            falha("carregar tabela filha (estrutura)")
             atuais = []
         tem = {linha.get("character_id") for linha in atuais}
         extras = _extras(supabase, logica)
@@ -486,7 +500,7 @@ def ler_perfil(supabase: Client, user_id: str) -> dict:
         if linhas:
             return linhas[0]
     except Exception:
-        pass
+        falha("ler o perfil")
     return {}
 
 
@@ -495,7 +509,9 @@ def _coluna_perfil_existe(supabase: Client, coluna: str) -> bool:
     try:
         supabase.table("user_profiles").select(coluna).limit(1).execute()
         return True
-    except Exception:
+    except Exception as erro:
+        if not coluna_ausente(erro):
+            falha("conferir coluna do perfil", erro)
         return False
 
 
@@ -516,6 +532,7 @@ def salvar_perfil(supabase: Client, user_id: str, dados: dict) -> bool:
         supabase.table("user_profiles").update(gravados).eq("id", user_id).execute()
         return True
     except Exception:
+        falha("salvar o perfil")
         return False
 
 
@@ -528,6 +545,7 @@ def trocar_email(supabase: Client, email: str) -> str:
             return str(erro)
         return ""
     except Exception as erro:
+        falha("trocar o e-mail", erro)
         return str(erro)
 
 
@@ -540,6 +558,7 @@ def trocar_senha(supabase: Client, senha: str) -> str:
             return str(erro)
         return ""
     except Exception as erro:
+        falha("trocar a senha", erro)
         return str(erro)
 
 
@@ -607,6 +626,7 @@ def salvar_conta(supabase: Client, user_id: str, dados_por_aba: dict) -> dict:
             if p.get("id") and p.get("Nome"):
                 mapa[p["Nome"]] = p["id"]
     except Exception:
+        falha("mapear personagens ao salvar")
         mapa = {}
 
     # --- tabelas filhas (1 requisicao cada) ---------------------------

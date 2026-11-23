@@ -7,6 +7,7 @@ precisa ser reaproveitado pelas demais chamadas (RLS depende dele).
 """
 
 from supabase import create_client, Client
+from registro import falha
 
 SUPABASE_URL = "https://rtpwvfrdhrvtulvvctze.supabase.co"
 SUPABASE_KEY = "sb_publishable_PsTxETk25rwmweJE17gyqA_MhRBgBAI"
@@ -53,6 +54,7 @@ def garantir_perfil(sb: Client, user_id: str, username: str = None) -> bool:
         ).execute()
         return True
     except Exception:
+        falha("garantir o perfil")
         return False
 
 

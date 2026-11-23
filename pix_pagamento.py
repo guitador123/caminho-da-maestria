@@ -19,6 +19,7 @@ import os
 import re
 
 import caminhos
+from registro import falha
 
 PASTA = "doacao"
 
@@ -67,7 +68,10 @@ def chave():
         with io.open(caminho, "r", encoding="utf-8") as arquivo:
             linhas = _ler(arquivo)
         return normalizar_chave(linhas[0]) if linhas else ""
+    except FileNotFoundError:
+        return ""
     except Exception:
+        falha("ler a chave Pix")
         return ""
 
 
@@ -78,7 +82,10 @@ def nome():
         with io.open(caminho, "r", encoding="utf-8") as arquivo:
             linhas = _ler(arquivo)
         return linhas[0] if linhas else "Caminho da Maestria"
+    except FileNotFoundError:
+        return "Caminho da Maestria"
     except Exception:
+        falha("ler o nome do Pix")
         return "Caminho da Maestria"
 
 
@@ -123,7 +130,10 @@ def payload_pronto():
         with io.open(caminho, "r", encoding="utf-8") as arquivo:
             linhas = _ler(arquivo)
         return " ".join(linhas) if linhas else ""
+    except FileNotFoundError:
+        return ""
     except Exception:
+        falha("ler o payload Pix")
         return ""
 
 
@@ -163,6 +173,7 @@ def imagem_pronta(lado=264):
             imagem = imagem.resize((lado, lado), Image.LANCZOS)
         return imagem
     except Exception:
+        falha("abrir a imagem do QR")
         return None
 
 
@@ -184,6 +195,7 @@ def qr_imagem(lado=160):
         import qrcode
         from PIL import Image
     except Exception:
+        falha("importar qrcode")
         return None
     try:
         qr = qrcode.QRCode(box_size=8, border=2)
@@ -193,4 +205,5 @@ def qr_imagem(lado=160):
                                back_color="white").convert("RGB")
         return imagem.resize((lado, lado), Image.LANCZOS)
     except Exception:
+        falha("gerar o QR Code")
         return None

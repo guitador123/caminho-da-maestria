@@ -63,8 +63,8 @@ def registrar(texto, imprime=True):
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
         with io.open(LOG, "a", encoding="utf-8") as arquivo:
             arquivo.write(linha + "\n")
-    except Exception:
-        pass
+    except OSError as erro:
+        print(f"(nao deu para gravar o log: {erro})", flush=True)
 
 
 def chave_service_role():
@@ -87,7 +87,8 @@ def chave_service_role():
                     texto = arquivo.read().strip()
                 if texto:
                     return texto
-            except Exception:
+            except OSError as erro:
+                registrar(f"ERRO ao ler {caminho}: {erro}")
                 continue
     return ""
 
@@ -108,7 +109,8 @@ def colunas_do_banco(sb):
         # tabela vazia: descobre pelas colunas de uma linha de qualquer conta
         try:
             resposta = sb.table(TABELA).select("*").limit(1).execute()
-        except Exception:
+        except Exception as erro:
+            registrar(f"ERRO ao reler a tabela: {erro}")
             return []
         if not resposta.data:
             registrar("AVISO: nao ha linhas para inspecionar; "
@@ -201,15 +203,22 @@ def main():
 
     # --- confere ----------------------------------------------------------
     restantes = 0
+    sem_conferir = 0
     for coluna in colunas:
         try:
             resposta = sb.table(TABELA).select("id").eq(coluna, True).execute()
             restantes += len(resposta.data or [])
-        except Exception:
-            pass
+        except Exception as erro:
+            # sem conferir nao da para afirmar que zerou
+            registrar(f"ERRO ao conferir a coluna {coluna}: {erro}")
+            sem_conferir += 1
 
     registrar(f"marcacoes zeradas: {zeradas} | ainda ativas: {restantes}")
     print()
+    if sem_conferir:
+        print(f"  ATENCAO: {sem_conferir} coluna(s) nao puderam ser "
+              "conferidas (veja o log)")
+        return 1
     if restantes == 0:
         registrar("OK - todas as missoes semanais foram zeradas")
         print("  CONCLUIDO: todas as missoes semanais foram zeradas.")

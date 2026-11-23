@@ -24,6 +24,7 @@ import customtkinter as ctk
 import caminhos
 import supabase_db as db
 import tema_visual as tv
+from registro import falha
 
 CORES = {
     "fundo": "#141221",
@@ -59,7 +60,7 @@ def _para_base64(caminho, lado=TAMANHO_FOTO):
             try:
                 os.unlink(temporario.name)
             except OSError:
-                pass
+                falha("apagar o temporario do avatar")
 
 
 def _de_base64(dados):
@@ -69,6 +70,7 @@ def _de_base64(dados):
     try:
         bruto = base64.b64decode(dados)
     except Exception:
+        falha("decodificar o avatar")
         return None
     temporario = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
     temporario.write(bruto)
@@ -205,8 +207,10 @@ class JanelaPerfil(ctk.CTkToplevel):
     def _focar(self):
         try:
             self.focus_set()
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("focar a janela de perfil")
 
     # --------------------------------------------------------- acoes ------
     def _atualizar_preview(self):
@@ -231,7 +235,7 @@ class JanelaPerfil(ctk.CTkToplevel):
                 self.foto_preview.configure(image=self._preview_ctk, text="")
                 return
             except Exception:
-                pass
+                falha("mostrar a previa da foto")
         inicial = (self.nick_var.get() or "?")[:1].upper()
         self.foto_preview.configure(image=None, text=inicial)
 
@@ -242,8 +246,10 @@ class JanelaPerfil(ctk.CTkToplevel):
         for botao in self._botoes_foto.values():
             try:
                 botao.destroy()
+            except tk.TclError:
+                pass                      # janela ja fechada
             except Exception:
-                pass
+                falha("limpar a grade de fotos")
         self._botoes_foto = {}
         grade = self._grade_fotos
         colunas = 5

@@ -18,6 +18,7 @@ e escalado proporcionalmente para o tamanho da janela.
 import os
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from registro import falha
 
 DESIGN_W = 1152
 DESIGN_H = 820
@@ -209,6 +210,7 @@ def _gradiente(base):
     try:
         import numpy as np
     except Exception:
+        falha("importar numpy (gradiente)")
         return base
 
     w, h = base.size
@@ -369,7 +371,7 @@ def avatar_circular(caminho, lado=96, cor_fundo=(58, 50, 92)):
             img.paste(foto, (0, 0), mascara)
             return img
         except Exception:
-            pass
+            falha("montar o avatar circular")
     d = ImageDraw.Draw(img)
     d.ellipse((1, 1, lado - 2, lado - 2), fill=cor_fundo + (255,),
               outline=(255, 255, 255, 40), width=2)
@@ -393,7 +395,7 @@ def icone_chaser(caminho, lado=142, opacidade=0.7):
         arte.putalpha(alfa)
         img.paste(arte, (0, 0), arte)
     except Exception:
-        pass
+        falha("montar o icone do chaser")
     return img
 
 

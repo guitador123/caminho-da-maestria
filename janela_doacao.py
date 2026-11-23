@@ -29,6 +29,9 @@ from PIL import Image
 import caminhos
 import pix_pagamento
 import tema_visual as tv
+from tkinter import TclError
+
+from registro import falha
 
 CORES = {
     "fundo": "#16112b",
@@ -79,7 +82,10 @@ def link_externo():
     try:
         with open(caminho, "r", encoding="utf-8") as arquivo:
             return arquivo.read().strip()
+    except FileNotFoundError:
+        return ""                 # sem link configurado (opcional)
     except Exception:
+        falha("ler o link de doacao")
         return ""
 
 
@@ -99,6 +105,7 @@ def copiar_para_area(texto):
             raiz.after(150, raiz.destroy)
             return True
         except Exception:
+            falha("copiar para a area de transferencia")
             return False
 
 
@@ -108,6 +115,7 @@ def _quadro_do_ico(caminho, lado=256):
     try:
         return imagem.ico.getimage((lado, lado)).convert("RGBA")
     except Exception:
+        falha("ler quadro do .ico")
         return imagem.convert("RGBA")
 
 
@@ -146,7 +154,7 @@ class PainelDoacao(ctk.CTkToplevel):
                 ctk.CTkLabel(topo, text="", image=self._foto_emblema,
                              width=46, height=46).pack(side="left")
             except Exception:
-                pass
+                falha("desenhar o emblema da doacao")
 
         textos = ctk.CTkFrame(topo, fg_color="transparent")
         textos.pack(side="left", padx=(12, 0))
@@ -214,7 +222,7 @@ class PainelDoacao(ctk.CTkToplevel):
                 ctk.CTkLabel(corpo, text="", image=self._foto_qr,
                              width=LADO_QR, height=LADO_QR).pack(side="left")
             except Exception:
-                pass
+                falha("desenhar o QR Code")
 
         lado = ctk.CTkFrame(corpo, fg_color="transparent")
         lado.pack(side="left", fill="both", expand=True, padx=(18, 0))
@@ -303,8 +311,10 @@ class PainelDoacao(ctk.CTkToplevel):
             return
         try:
             self.rotulo_chave.configure(text=chave)
+        except TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("mostrar a chave Pix")
 
     def copiar_chave(self):
         chave = chave_pix()
@@ -336,7 +346,10 @@ class PainelDoacao(ctk.CTkToplevel):
             y = self.app.winfo_rooty()
             altura = min(self.app.winfo_height(), 920)
             return x, y, altura
+        except TclError:
+            return 100, 100, 700
         except Exception:
+            falha("posicionar o painel de doacao")
             return 100, 100, 700
 
     def _posicionar(self, final=True):
@@ -366,5 +379,7 @@ class PainelDoacao(ctk.CTkToplevel):
     def fechar(self):
         try:
             self.destroy()
+        except TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("fechar o painel de doacao")

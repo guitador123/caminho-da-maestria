@@ -15,6 +15,7 @@ import tkinter as tk
 from PIL import Image, ImageDraw, ImageTk
 
 from opcoes import normalizar
+from registro import falha
 
 # --------------------------------------------------------------------- cores
 CORES = {
@@ -159,7 +160,7 @@ def retrato_pronto(caminho, largura, altura):
         if caixa:
             img = img.crop(caixa)
     except Exception:
-        pass
+        falha("recortar o retrato")
     escala = min(largura / img.width, altura / img.height)
     img = img.resize((max(1, int(img.width * escala)),
                       max(1, int(img.height * escala))), Image.LANCZOS)
@@ -264,8 +265,10 @@ class CardPersonagem:
                 novos = [coords[0] + dx, coords[1] + dy]
                 novos += list(coords[2:])
                 self.canvas.coords(item, *novos)
+            except tk.TclError:
+                pass                      # janela ja fechada
             except Exception:
-                pass
+                falha("mover o card")
         self.x0 = x
         self.y0 = y
 
@@ -275,8 +278,10 @@ class CardPersonagem:
         for item in getattr(self, "_itens", []):
             try:
                 self.canvas.itemconfigure(item, state=estado)
+            except tk.TclError:
+                pass                      # janela ja fechada
             except Exception:
-                pass
+                falha("mostrar/esconder o card")
 
     # ------------------------------------------------- clique no card todo --
     def _ligar_clique(self):
@@ -583,8 +588,10 @@ class CardPersonagem:
         for item in getattr(self, "_itens", []):
             try:
                 self.canvas.delete(item)
+            except tk.TclError:
+                pass                      # janela ja fechada
             except Exception:
-                pass
+                falha("apagar itens do card")
         self._itens = []
         self._desenhar()
 
@@ -612,7 +619,7 @@ class CardPersonagem:
                 self.create_image(LARGURA - 2, altura - 2, anchor="se",
                                   image=self._img("retrato", img))
             except Exception:
-                pass
+                falha("desenhar o retrato do card")
         else:
             inicial = (dados.get("nome") or "?")[0].upper()
             self.create_oval(LARGURA - 62, 54, LARGURA - 14, 102,

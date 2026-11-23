@@ -35,7 +35,10 @@ def _ler(nome, padrao=""):
     try:
         with io.open(caminho, "r", encoding="utf-8") as arquivo:
             linhas = [linha.strip() for linha in arquivo]
-    except Exception:
+    except FileNotFoundError:
+        return padrao
+    except Exception as erro:
+        print(f"AVISO: nao deu para ler {caminho}: {erro}")
         return padrao
     uteis = [linha for linha in linhas
              if linha and not linha.startswith("#")]

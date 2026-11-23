@@ -83,7 +83,9 @@ def main():
             try:
                 with pacote.open(info) as arquivo:
                     dados = arquivo.read()
-            except Exception:
+            except Exception as erro:
+                # sem ler nao da para garantir que nao tem segredo
+                problemas.append((f"nao deu para ler ({erro})", nome))
                 continue
 
             for nome_regra, padrao, critico in VERIFICACOES:

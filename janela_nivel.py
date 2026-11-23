@@ -17,6 +17,7 @@ import tkinter as tk
 import customtkinter as ctk
 
 import caminhos
+from registro import falha
 
 CORES = {
     "fundo": "#141221",
@@ -124,8 +125,10 @@ class JanelaNivelChaser(ctk.CTkToplevel):
         try:
             self.entrada.focus_set()
             self.entrada.select_range(0, "end")
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("focar a janela do nivel")
 
     def _salvar(self):
         valor, erro = validar_nivel(self.entrada.get())

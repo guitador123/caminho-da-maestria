@@ -18,6 +18,7 @@ import tkinter as tk
 import customtkinter as ctk
 
 import caminhos
+from registro import falha
 
 from card_personagem import DUNGEONS
 
@@ -163,8 +164,10 @@ class JanelaMissaoRapida(ctk.CTkToplevel):
         for nome in list(self._botoes_personagem):
             try:
                 self._botoes_personagem[nome].destroy()
+            except tk.TclError:
+                pass                      # janela ja fechada
             except Exception:
-                pass
+                falha("filtrar os botoes da missao")
         self._botoes_personagem = {}
         for nome in self.nomes:
             if termo and termo not in nome.lower():
@@ -246,5 +249,7 @@ class JanelaMissaoRapida(ctk.CTkToplevel):
         try:
             self.focus_set()
             self.busca.focus_set()
+        except tk.TclError:
+            pass                      # janela ja fechada
         except Exception:
-            pass
+            falha("focar a missao rapida")
