@@ -1,0 +1,47 @@
+# Roda os testes de logica pura (tests/) a cada push e pull request.
+# Os testes de integracao (Supabase/janela) ficam de fora: rodam no PC com
+#   python -m pytest -m integracao
+name: testes
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# so le o codigo (nenhum segredo e nenhuma escrita)
+permissions:
+  contents: read
+
+concurrency:
+  group: testes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (Python ${{ matrix.python }})
+    # o app e para Windows (robocopy, .cmd, LOCALAPPDATA)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # o minimo do README e o usado no build
+        python: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            constraints.txt
+
+      - name: Instalar dependencias (versoes travadas)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest==9.0.3
+
+      - name: Rodar os testes
+        run: python -m pytest -v

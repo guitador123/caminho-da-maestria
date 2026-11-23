@@ -99,15 +99,21 @@ esperar: todo `.exe` instalado atualiza sozinho na próxima abertura.
 
 ## Rodar os testes
 
-A suíte completa (precisa de uma conta de teste no Supabase):
-
 ```bash
-python teste_perfil.py
-python teste_doacao.py
-python teste_integracao.py
-python teste_zerar_semanais.py
-...
+python -m pip install pytest==9.0.3
+
+# lógica pura: rápido, sem internet e sem janela (é o que roda no GitHub)
+python -m pytest
+
+# integração: Supabase (conta de teste) + janelas do app
+python -m pytest -m integracao
 ```
+
+Os testes de lógica ficam em `tests/` e rodam no **GitHub Actions** a cada
+push (`.github/workflows/testes.yml`, Windows, Python 3.11 e 3.14).
+Os de integração são os scripts `teste_*.py` da raiz (dá para rodar um
+sozinho: `python teste_perfil.py`). O `teste_zerar_semanais.py` fica fora da
+suíte e só roda com `--confirmar`.
 
 A conta de teste é `teste@teste.com`. A **senha não fica no repositório**:
 os testes leem a senha (nessa ordem) dos argumentos (`python teste_x.py email senha`),

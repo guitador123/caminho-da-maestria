@@ -101,11 +101,12 @@ auto-update ficou quebrado por causa disso).
 
 ## 🟡 Média
 
-### 8. Migrar os testes para pytest e rodar no GitHub Actions
+### 8. Migrar os testes para pytest e rodar no GitHub Actions ✅
 Hoje são 42 scripts soltos que precisam de janela e de Supabase.
-- [ ] Criar `tests/` com testes de lógica pura (filtros, `opcoes`, `_limpar`, `_sha_da_release`, script do auto-update)
-- [ ] Separar os testes que precisam do Supabase ou de janela (marcador `@pytest.mark.integracao`)
-- [ ] Workflow do GitHub Actions rodando os testes puros a cada push
+- [x] `tests/` com 87 testes de lógica pura: `opcoes`, `_limpar`/`_bool`, `so_alteradas` e `salvar_conta` (cliente Supabase falso: só o que mudou, fallback, erro não grava pela metade), `_sha_da_release`, feed de releases, script de troca do auto-update, `limpar_sobras`, assinatura (chave de teste), `registro`, Pix, helpers dos cards e do nível. Os filtros ficam para o item 10 (estão presos dentro da classe da janela)
+- [x] `tests/test_integracao.py` roda 17 scripts `teste_*.py` (Supabase/janela) com o marcador `integracao`, fora do padrão: `python -m pytest -m integracao`
+- [x] `.github/workflows/testes.yml`: Windows, Python 3.11 e 3.14, só leitura, a cada push e PR
+- [x] `teste_edicao_supabase.py` consertado (alguns contadores viraram `CTkComboBox`)
 - **Pronto quando:** `pytest` passa localmente e o check aparece verde no GitHub.
 
 ### 9. Organizar a raiz do projeto

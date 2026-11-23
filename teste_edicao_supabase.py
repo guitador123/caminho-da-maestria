@@ -83,8 +83,11 @@ def main(argv):
         plano = normalizar(chave)
         if any(a in plano for a in alvos):
             entrada, _max = item
-            entrada.delete(0, "end")
-            entrada.insert(0, "2")          # dentro dos limites de todos
+            if hasattr(entrada, "delete"):      # CTkEntry (campo livre)
+                entrada.delete(0, "end")
+                entrada.insert(0, "2")          # dentro dos limites de todos
+            else:                               # CTkComboBox (lista)
+                entrada.set("2")
             encontrados += 1
     print(f"2) campos novos encontrados na edicao: {encontrados}")
     print("   chaves da edicao:",
