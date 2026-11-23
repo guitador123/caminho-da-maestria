@@ -144,7 +144,11 @@ assets/               imagens (fundo, retratos, ícones, QR do Pix)
 
 | Em `src/` | O que é |
 |---|---|
-| `app_grandchase.py` | tela principal (cards, filtros, perfil, hero) |
+| `app_grandchase.py` | tela principal (cenário, cards, perfil, botões) |
+| `app_filtros.py` / `app_missao.py` | filtros dos cards / Missão Rápida e zerar dungeons |
+| `app_salvamento.py` | carregar e salvar no Supabase, nível do chaser, preferências |
+| `app_arquivos.py` / `app_cartoes.py` | Excel, SQLite e tabela / cartões de estatística |
+| `config_app.py` / `dados_app.py` | constantes da tela / funções puras sobre as abas |
 | `login.py` / `auth.py` | tela de login e login no Supabase |
 | `card_personagem.py` | o card de cada personagem (com as regras de cor) |
 | `janela_*.py` | edição do personagem, perfil, doação, nível, missão rápida |

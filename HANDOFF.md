@@ -22,6 +22,10 @@
 > `src/login.py`). O `app_grandchase.py` da RAIZ é só um atalho para
 > `src/app_grandchase.py`: **não mova nem renomeie** (os PCs em modo git e o
 > auto-update de versões antigas abrem exatamente esse arquivo).
+> O `GrandChaseApp` foi dividido (item 10): os métodos de filtros, missão,
+> salvamento, Excel/SQLite e cartões estão em `src/app_*.py` (mixins que a
+> classe herda), as constantes em `config_app.py` e os helpers puros em
+> `dados_app.py`. Um método citado abaixo como "do app" pode estar num deles.
 
 ## 1. Objetivo Final
 Aplicativo desktop moderno (CustomTkinter) para controle de Grand Chase de uma guilda (~40 pessoas), com:

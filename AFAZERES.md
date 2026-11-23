@@ -53,9 +53,9 @@ do GitHub for comprometida, todos os PCs da guilda rodam o código do invasor.
 - [x] `publicar_release.py` assina o zip e sobe o `.sig` (e para antes do build se faltar a chave)
 - [x] `atualizacao.py` só instala se a assinatura conferir; senão registra no log e abre a versão atual
 - [x] `teste_assinatura.py`: válida instala; zip adulterado, .sig adulterado, sem .sig e chave de invasor são recusados
-- [ ] **Guardar uma cópia da chave privada** fora do PC (pendrive ou gerenciador de senhas)
+- [x] **Guardar uma cópia da chave privada** fora do PC (feito em 23/11)
 - [x] Publicada a release `v2026.11.23-bc98408` com o `.sig` (a release real baixada do GitHub confere; o módulo está dentro do .exe)
-- [ ] Ativar a verificação em duas etapas (2FA) na conta do GitHub, se ainda não estiver
+- [ ] Ativar a verificação em duas etapas (2FA) na conta do GitHub (adiado; fazer depois)
 - Obs.: o modo git (`atualizar.bat` / `git pull`) não é coberto pela assinatura; ele confia no GitHub. Aí a proteção é o 2FA.
 - **Pronto quando:** um zip alterado é recusado e o app abre normalmente na versão atual.
 
@@ -116,9 +116,11 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 - [x] `.spec` aponta para `src/`; o `.exe` montado abre normalmente; `publicar_release.py` chama os scripts em `scripts/`
 - Para rodar um script de `tools/` ou `tests/integracao/` direto: `python tools/debug_app.py`, `python tests/integracao/teste_perfil.py` (o `_raiz.py` de cada pasta põe o `src/` no caminho)
 
-### 10. Quebrar o `app_grandchase.py` (cerca de 2.700 linhas)
-- [ ] Extrair filtros, missão rápida, salvamento e importação/exportação de Excel em módulos próprios
-- [ ] Fazer depois do item 8, para ter testes protegendo a refatoração
+### 10. Quebrar o `app_grandchase.py` (cerca de 2.700 linhas) ✅
+- [x] Extrair filtros, missão rápida, salvamento e importação/exportação de Excel em módulos próprios: `app_filtros.py`, `app_missao.py`, `app_salvamento.py` (Supabase, nível, preferências), `app_arquivos.py` (Excel, SQLite, tabela), `app_cartoes.py` (cartões do topo), `config_app.py` (constantes) e `dados_app.py` (funções puras). O `app_grandchase.py` caiu de 2.759 para ~1.100 linhas (tela, cards, perfil, widgets)
+- [x] Os métodos foram movidos sem mudar o código (o `GrandChaseApp` herda das partes; conferido por AST: os mesmos 106 métodos). Única mudança: `MOSTRAR_TABELA` virou `self.mostrar_tabela` (lido na criação)
+- [x] `tests/test_dados_app.py`: testes puros das funções de colunas/valores
+- [x] Fazer depois do item 8, para ter testes protegendo a refatoração (88 → 107 testes puros + 17 de integração passando)
 
 ---
 
