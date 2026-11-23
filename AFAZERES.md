@@ -24,23 +24,26 @@ Marque `[x]` ao concluir e anote o commit ao lado.
 
 ## 🔴 Crítica
 
-### 1. Trocar a senha da conta de teste e tirá-la do código
+### 1. Trocar a senha da conta de teste e tirá-la do código ✅
 O repositório é público, e a senha de `teste@teste.com` aparece em vários
 `teste_*.py`, no `limpar_duplicados.py` e no `HANDOFF.md`.
 Qualquer pessoa pode entrar no Supabase com ela.
-- [ ] Trocar a senha da conta de teste no Supabase (você, no painel) e gravar a nova no `.env.teste`
+- [x] Trocar a senha da conta de teste no Supabase e gravar a nova no `.env.teste` (23/11: senha antiga recusada, nova OK)
 - [x] Ler e-mail/senha de variáveis de ambiente (`GC_TESTE_EMAIL`, `GC_TESTE_SENHA`) ou do `.env.teste` nos testes (`credenciais_teste.py`)
 - [x] Remover a senha do `HANDOFF.md` e do `README.md`
 - Obs.: a senha antiga continua no histórico do git; por isso a troca é obrigatória.
 - **Pronto quando:** `git grep testeteste` não encontra nada e os testes rodam com as variáveis.
 
-### 2. Versionar o schema e as políticas de RLS
+### 2. Versionar o schema e as políticas de RLS ✅
 A chave pública está dentro do app, então o RLS é a única coisa que impede
 um usuário de ler ou editar os dados de outro. Hoje as tabelas principais
 e as policies não estão no repositório.
-- [ ] Exportar do Supabase o schema das tabelas (`user_characters` e filhas, `user_profiles`) para `sql/schema.sql`
-- [ ] Exportar as policies de RLS para `sql/rls.sql` e conferir se toda tabela tem RLS ligado
-- [ ] Teste: com dois usuários, um não consegue ler nem alterar os dados do outro
+- [x] Teste `teste_rls.py`: sem login não lê nada; logado só vê e só grava o que é seu (23/11: RLS OK nas 5 tabelas)
+- [x] Exportar o schema para `sql/schema.sql` (23/11)
+- [x] Revisar: as 6 tabelas têm RLS ligado; insert/update/delete restritos ao dono
+- [x] `sql/corrigir_permissoes.sql` aplicado (23/11): a `zerar_semanais()` (SECURITY DEFINER) estava liberada para anon e authenticated, ou seja, qualquer um podia zerar as semanais da guilda; agora só postgres/service_role. A `profiles` antiga deixou de ser legível sem login
+- [x] `python teste_zerar_semanais.py --confirmar`: "PROTEGIDA" (anon e usuário comum recebem permissão negada)
+- [x] Reexportado (23/11): FKs depois das tabelas, extensão `uuid-ossp` e permissões das funções; dá para recriar o banco só com `sql/schema.sql`
 - **Pronto quando:** dá para recriar o banco do zero só com os arquivos de `sql/`.
 
 ### 3. Conferir a integridade das atualizações

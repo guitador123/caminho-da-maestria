@@ -110,9 +110,12 @@ $$;
 comment on function public.zerar_semanais() is
   'Zera as missoes semanais de todas as contas (usado pelo pg_cron).';
 
--- so o dono do banco (e o agendador) podem chamar
-revoke all on function public.zerar_semanais() from public;
-grant execute on function public.zerar_semanais() to postgres;
+-- so o dono do banco (o pg_cron) e o service_role podem chamar.
+-- ATENCAO: no Supabase o `from public` NAO basta: o Supabase da EXECUTE
+-- direto para anon e authenticated em toda funcao nova do schema public
+-- (e a funcao e SECURITY DEFINER: ignoraria o RLS e zeraria a guilda toda).
+revoke execute on function public.zerar_semanais() from public, anon, authenticated;
+grant  execute on function public.zerar_semanais() to postgres, service_role;
 
 
 -- ---------------------------------------------------------------------------

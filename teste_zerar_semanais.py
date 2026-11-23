@@ -1,99 +1,72 @@
 # -*- coding: utf-8 -*-
 """
-Teste da limpeza semanal (a funcao `public.zerar_semanais()` do Supabase).
+Teste da PROTECAO da limpeza semanal (`public.zerar_semanais()`).
 
-Faz o ciclo completo na conta de teste:
-  1. marca as 7 missoes semanais como true em todas as linhas;
-  2. chama a funcao do banco (a mesma que o pg_cron roda);
-  3. confere que tudo voltou para false;
-  4. chama de novo e confere que devolve 0 (e idempotente).
+A funcao e SECURITY DEFINER (ignora o RLS) e zera as missoes semanais de
+TODAS as contas. Ela so pode ser chamada pelo pg_cron (postgres) e pelo
+service_role. Este teste confere que um usuario COMUM (e o anon) recebem
+"permissao negada" ao chamar o RPC.
 
-    python teste_zerar_semanais.py [email] [senha]
+ATENCAO: se a protecao estiver QUEBRADA, a chamada do teste ZERA as
+semanais da guilda inteira. Por isso ele so roda com --confirmar, e so
+depois de aplicar o sql/corrigir_permissoes.sql (confira antes, no SQL
+Editor, o bloco 1 daquele arquivo).
 
-Se a funcao nao existir (ainda nao rodou o SQL), o teste avisa e
-devolve 1 (sem quebrar).
+    python teste_zerar_semanais.py --confirmar [email] [senha]
+
+O funcionamento da limpeza em si se confere no SQL Editor:
+    sql/zerar_semanais_verificar.sql
 """
 
-import os
 import sys
+
+from supabase import create_client
+
 from credenciais_teste import conta_teste
 
-COLUNAS = ["fornalha_infernal", "altar_da_runha", "torre_das_ilusoes_semanal",
-           "void_123", "void_4", "caminho_abissal", "terra_do_julgamento"]
 
-
-def _valor(resultado):
-    """O retorno do RPC: um escalar (ou uma lista com um escalar)."""
-    dados = resultado.data
-    if isinstance(dados, list):
-        return dados[0] if dados else None
-    return dados
+def _negado(cliente):
+    """True se o RPC foi recusado por permissao (42501)."""
+    try:
+        cliente.rpc("zerar_semanais").execute()
+    except Exception as erro:
+        texto = f"{getattr(erro, 'code', '')} {erro}"
+        return "42501" in texto or "permission denied" in texto.lower()
+    return False
 
 
 def main(argv):
+    if "--confirmar" not in argv:
+        print(__doc__)
+        print("Nao rodei: falta --confirmar (leia o aviso acima).")
+        return 1
+    argv = [a for a in argv if a != "--confirmar"]
     email, senha = conta_teste(argv)
 
     import auth
+    from supabase_db import SUPABASE_KEY, SUPABASE_URL
 
-    sb, resp = auth.login(email, senha)
-    if getattr(resp, "user", None) is None:
-        print("FALHA NO LOGIN")
-        return 1
-    print("logado:", resp.user.id)
+    falhas = []
+    print("1) sem login (anon) chamando zerar_semanais():")
+    if _negado(create_client(SUPABASE_URL, SUPABASE_KEY)):
+        print("   OK  permissao negada")
+    else:
+        falhas.append("o anon conseguiu chamar a funcao")
 
-    def ativas():
-        linhas = sb.table("user_semanais").select("*").execute().data or []
-        return ({c: sum(1 for l in linhas if l.get(c)) for c in COLUNAS},
-                len(linhas))
-
-    # 1) a funcao existe?
-    print("\n1) a funcao public.zerar_semanais() existe?")
-    try:
-        sb.rpc("zerar_semanais").execute()
-    except Exception as erro:
-        print(f"   FALHOU: {str(erro)[:200]}")
-        print("   rode o SQL: sql/zerar_semanais_pg_cron.sql")
-        return 1
-    print("   OK (respondeu)")
-
-    # 2) marca tudo
-    print("\n2) marcando as 7 missoes como true...")
-    for coluna in COLUNAS:
-        sb.table("user_semanais").update({coluna: True}).eq(coluna, False).execute()
-    antes, total = ativas()
-    print(f"   {antes} (total de linhas: {total})")
-    if not any(antes.values()):
-        print("   FALHOU: nao consegui marcar nada")
-        return 1
-
-    # 3) a funcao zera
-    print("\n3) chamando a funcao do banco...")
-    resultado = sb.rpc("zerar_semanais").execute()
-    devolvido = _valor(resultado)
-    print(f"   devolveu: {devolvido}")
-
-    depois, _ = ativas()
-    print(f"   depois: {depois}")
-
-    # 4) idempotencia
-    print("\n4) chamando de novo (tem que devolver 0)...")
-    resultado2 = sb.rpc("zerar_semanais").execute()
-    devolvido2 = _valor(resultado2)
-    print(f"   devolveu: {devolvido2}")
+    print("2) usuario comum chamando zerar_semanais():")
+    sb, _resp = auth.login(email, senha)
+    if _negado(sb):
+        print("   OK  permissao negada")
+    else:
+        falhas.append("um usuario comum conseguiu chamar a funcao")
 
     print()
-    problemas = []
-    if any(depois.values()):
-        problemas.append("sobrou marcacao depois da limpeza")
-    if devolvido2 not in (0, None):
-        problemas.append(f"a segunda chamada devolveu {devolvido2} (esperado 0)")
-    if problemas:
-        print("FALHOU:")
-        for problema in problemas:
-            print("   -", problema)
+    if falhas:
+        print("FALHOU (rode o sql/corrigir_permissoes.sql):")
+        for texto in falhas:
+            print("   -", texto)
         return 1
-
-    print("LIMPEZA SEMANAL OK (marcou -> zerou -> idempotente)")
+    print("LIMPEZA SEMANAL PROTEGIDA (so o pg_cron/service_role chamam)")
     return 0
 
 
