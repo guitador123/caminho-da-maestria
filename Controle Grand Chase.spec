@@ -5,8 +5,10 @@ import os
 block_cipher = None
 
 a = Analysis(
-    ['app_grandchase.py'],
-    pathex=[],
+    # o codigo do app fica em src/ (o app_grandchase.py da raiz e so o
+    # atalho para rodar pelo codigo-fonte)
+    [os.path.join(SPECPATH, 'src', 'app_grandchase.py')],
+    pathex=[os.path.join(SPECPATH, 'src')],
     binaries=[],
     datas=[(os.path.join(SPECPATH, 'assets', 'background.jpg'), 'assets'),
            (os.path.join(SPECPATH, 'assets', 'login.png'), 'assets'),

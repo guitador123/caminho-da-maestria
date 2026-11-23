@@ -23,8 +23,9 @@ PASTA = os.path.dirname(os.path.abspath(__file__))
 
 # o modulo compartilhado (fonte da verdade da chave e do payload)
 RAIZ = os.path.dirname(os.path.dirname(PASTA))
-if RAIZ not in sys.path:
-    sys.path.insert(0, RAIZ)
+SRC = os.path.join(RAIZ, "src")           # o codigo do app fica em src/
+if SRC not in sys.path:
+    sys.path.insert(0, SRC)
 
 import pix_pagamento  # noqa: E402
 

@@ -1,0 +1,82 @@
+ZERAR AS MISSOES SEMANAIS DE TODAS AS CONTAS
+==============================================
+
+TEM DUAS MANEIRAS DE FAZER ISSO. A PRIMEIRA E A RECOMENDADA.
+
+
+1) NO SERVIDOR (pg_cron) - RECOMENDADO
+------------------------------------------
+Roda no proprio Supabase: nao depende de maquina ligada, nao precisa de
+chave service_role e nao pode falhar por causa do PC.
+
+Arquivo:  sql/zerar_semanais_pg_cron.sql
+
+Como usar:
+  1. abra o SQL Editor do painel do Supabase
+  2. cole o arquivo `sql/zerar_semanais_pg_cron.sql` inteiro
+  3. clique em "Run"
+  4. depois (opcional) rode `sql/zerar_semanais_verificar.sql` para conferir
+
+O arquivo de criacao NAO tem nenhuma query de conferencia (so o que cria
+a funcao e o agendamento): assim ele nunca da erro e nunca desfaz o que
+acabou de criar.
+
+O que ele cria:
+  - a funcao public.zerar_semanais()  (marca as 7 missoes semanais de
+    todas as contas como "Falso")
+  - a tarefa do pg_cron "zerar-missoes-semanais", toda QUARTA-FEIRA as
+    03h de Brasilia (o script calcula a hora no fuso do servidor: no
+    Supabase, que e UTC, fica 06h UTC = 03h de Brasilia).
+
+Para conferir (ou rode sql/zerar_semanais_verificar.sql):
+  select jobid, jobname, schedule, command, active from cron.job;
+  show timezone;
+
+(no aviso que aparece ao rodar, ve o horario que foi agendado:
+ "Agendado: zerar-missoes-semanais | cron=0 06 * * 3 | servidor em UTC |
+  03h de Brasilia = 6h no servidor")
+
+Para testar na mao:
+  select public.zerar_semanais();     -- zera agora e devolve quantas linhas mudou
+
+Para REMOVER:
+  select cron.unschedule('zerar-missoes-semanais');
+  drop function if exists public.zerar_semanais();
+
+
+2) NO WINDOWS (Agendador de Tarefas) - alternativa
+-----------------------------------------------------
+Roda na sua maquina. So funciona se o PC estiver ligado e logado na
+quarta as 03h, e precisa da service_role key (porque a chave anon nao
+passa na RLS do banco).
+
+Arquivos: zerar_semanais_semanal.py + agendar_zerar_semanal.cmd
+
+  agendar_zerar_semanal.cmd         cria a tarefa
+  agendar_zerar_semanal.cmd /testar  testa o script
+  agendar_zerar_semanal.cmd /remover apaga a tarefa
+
+  python scripts/zerar_semanais_semanal.py           zera de verdade
+  python scripts/zerar_semanais_semanal.py --testar   so mostra o que seria
+  python scripts/zerar_semanais_semanal.py --colunas  lista as colunas do banco
+
+A chave service_role (so para esta via) e procurada em:
+  1. a variavel de ambiente SUPABASE_SERVICE_ROLE_KEY
+  2. %LOCALAPPDATA%\Caminho da Maestria\service_role.txt
+  3. service_role.txt ao lado do script
+
+A chave NUNCA vai no app nem no instalador: o gerador/instalador aborta
+se encontrar "service_role" ou "sb_secret_" dentro do pacote.
+
+O log desta via fica em:
+  %LOCALAPPDATA%\Caminho da Maestria\log_zerar_semanais.log
+
+
+O QUE E ZERADO
+---------------
+As 7 colunas booleanas da tabela public.user_semanais:
+
+  fornalha_infernal | altar_da_runha | torre_das_ilusoes_semanal |
+  void_123 | void_4 | caminho_abissal | terra_do_julgamento
+
+(e o updated_at das linhas que mudaram)

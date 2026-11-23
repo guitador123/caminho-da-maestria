@@ -14,6 +14,14 @@
 > **Conta de teste:** `teste@teste.com` (senha em `GC_TESTE_SENHA` ou no `.env.teste`, fora do git).
 >
 > Leia a seção **4** (como a tela é montada) e a **5** (armadilhas) antes de mexer.
+>
+> **Pastas (desde 23/11/2026):** o código do app fica em `src/`; build,
+> release e instalador em `scripts/`; ferramentas em `tools/`; testes em
+> `tests/` (pytest) e `tests/integracao/` (os `teste_*.py`). Os nomes de
+> arquivo citados abaixo sem pasta seguem essa regra (ex.: `login.py` =
+> `src/login.py`). O `app_grandchase.py` da RAIZ é só um atalho para
+> `src/app_grandchase.py`: **não mova nem renomeie** (os PCs em modo git e o
+> auto-update de versões antigas abrem exatamente esse arquivo).
 
 ## 1. Objetivo Final
 Aplicativo desktop moderno (CustomTkinter) para controle de Grand Chase de uma guilda (~40 pessoas), com:
@@ -197,11 +205,11 @@ nome da planilha ("Caminho Abissal") quanto com o do banco ("caminho_abissal").
 
 ```
 python -m py_compile app_grandchase.py            -> SINTAXE OK
-python teste_fundo.py                              -> PIL abriu OK: JPEG (1280, 720) RGB
-python teste_integracao.py                         -> INTEGRACAO OK
-python teste_acoes.py                              -> ACOES OK
-python teste_visual.py saida.png                   -> PNG + pixels das margens (foto visível)
-python teste_visual_login.py saida.png             -> tela logada + cards + 25 linhas/aba
+python tests/integracao/teste_fundo.py                              -> PIL abriu OK: JPEG (1280, 720) RGB
+python tests/integracao/teste_integracao.py                         -> INTEGRACAO OK
+python tests/integracao/teste_acoes.py                              -> ACOES OK
+python tests/integracao/teste_visual.py saida.png                   -> PNG + pixels das margens (foto visível)
+python tests/integracao/teste_visual_login.py saida.png             -> tela logada + cards + 25 linhas/aba
 ```
 
 ## 3. Banco Supabase
@@ -592,7 +600,7 @@ cada salvamento, e ainda abria um `messagebox` de confirmação.
    linha falha, nada é gravado. Ela é `security invoker` (o RLS vale), não
    troca `user_id`/`character_id` num update e recusa `id` que não é da conta.
    Sem a função no banco, o app cai no jeito antigo e registra no log.
-   Teste: `python teste_salvar_atomico.py`.
+   Teste: `python tests/integracao/teste_salvar_atomico.py`.
 2. **Thread de rede** — `salvar_supabase()` tira um *snapshot* dos dataframes e
    sobe uma `threading.Thread` que só faz I/O (nada de Tk). O resultado volta
    por `queue.Queue` e é lido na thread da UI por `after()` (`_verificar_salvamento`).
@@ -1891,8 +1899,8 @@ instalador\RELATORIO-SEGURANCA.txt                   (a auditoria)
 **Como gerar de novo**
 
 ```bash
-python gerar_instalador.py      # monta a pasta e compacta o .zip
-python auditoria_instalador.py  # revisa o pacote antes de distribuir
+python scripts/gerar_instalador.py      # monta a pasta e compacta o .zip
+python scripts/auditoria_instalador.py  # revisa o pacote antes de distribuir
 ```
 
 **Seguranca (o ponto mais importante)**
@@ -2181,7 +2189,7 @@ os caminhos padrao de instalacao).
 
 **Publicar uma versao (para o `.exe` se atualizar):**
 ```bash
-python publicar_release.py
+python scripts/publicar_release.py
 ```
 (grava a versao, empacota, **audita o pacote** e cria a Release no GitHub)
 
@@ -2325,40 +2333,40 @@ use a conta de teste:
 ### Validar
 ```powershell
 python -m py_compile app_grandchase.py card_personagem.py janela_personagem.py tema_visual.py tema_login.py login.py caminhos.py supabase_db.py opcoes.py
-python teste_fundo.py                              # imagem existe e abre no PIL
-python teste_integracao.py                         # dados/RLS
-python teste_acoes.py                              # acoes da tela (nao destrutivo)
-python teste_edicao.py                             # edicao grava nos dataframes
-python teste_campos_novos.py                       # colunas novas no Supabase
-python teste_edicao_supabase.py                    # edicao -> Supabase -> restaura
-python teste_salvamento_async.py                   # salvamento em 2o plano (nao trava)
-python teste_card_ao_vivo.py                      # edicao ao vivo -> card na hora
-python teste_visual_cores.py "c.png"               # regras de cor dos cards
-python teste_edicao_personagem.py                   # cada card abre a SUA edicao
-python teste_edicao_persistencia.py                 # salvar -> reabrir (Supabase)
-python teste_nivel_chaser.py                       # nivel do chaser (local)
-python teste_nivel_supabase.py                     # nivel do chaser (Supabase)
-python teste_layout_card.py                        # card em qualquer resolucao
-python teste_resolucoes.py                         # capturas FullHD/QuadHD
-python teste_login_exe_resolucao.py "e.png"      # .exe em tela cheia
-python teste_card_clicavel.py                     # card inteiro clicavel
-python teste_dropdowns_liberacao.py               # dropdowns despertar/liberacao
-python teste_perfil.py                           # perfil no hero + conta
-python teste_contador_despertar.py                # contador do despertar
-python teste_contador_libertacao.py               # contador da liberacao
-python teste_schema_limpo.py                      # schema do banco sem sobras
-python teste_missao_rapida.py                    # missao rapida (painel + cards)
-python teste_zerar_dungeons.py                  # zerar dungeons limpa o card
-python teste_filtros.py                        # busca + filtros + ordem
-python teste_login_memo.py                         # memorizar conta
-python teste_visual.py "C:\temp\captura.png"       # screenshot da tela local
-python teste_visual_login.py "C:\temp\captura.png" # screenshot logado
-python teste_visual_login2.py "C:\temp\captura.png" # screenshot da tela de login
-python teste_card.py "C:\temp\captura.png"         # screenshot de 1 card
-python teste_visual_cards.py "a.png" "b.png"        # hero + lista de cards (rolagem)
-python teste_visual_edicao.py "c.png"              # tela de edicao
-python teste_cards_retrato.py "d.png" 830          # cards com os retratos
-python teste_login_exe.py "e.png"                  # E2E do .exe (login -> tela)
+python tests/integracao/teste_fundo.py                              # imagem existe e abre no PIL
+python tests/integracao/teste_integracao.py                         # dados/RLS
+python tests/integracao/teste_acoes.py                              # acoes da tela (nao destrutivo)
+python tests/integracao/teste_edicao.py                             # edicao grava nos dataframes
+python tests/integracao/teste_campos_novos.py                       # colunas novas no Supabase
+python tests/integracao/teste_edicao_supabase.py                    # edicao -> Supabase -> restaura
+python tests/integracao/teste_salvamento_async.py                   # salvamento em 2o plano (nao trava)
+python tests/integracao/teste_card_ao_vivo.py                      # edicao ao vivo -> card na hora
+python tests/integracao/teste_visual_cores.py "c.png"               # regras de cor dos cards
+python tests/integracao/teste_edicao_personagem.py                   # cada card abre a SUA edicao
+python tests/integracao/teste_edicao_persistencia.py                 # salvar -> reabrir (Supabase)
+python tests/integracao/teste_nivel_chaser.py                       # nivel do chaser (local)
+python tests/integracao/teste_nivel_supabase.py                     # nivel do chaser (Supabase)
+python tests/integracao/teste_layout_card.py                        # card em qualquer resolucao
+python tests/integracao/teste_resolucoes.py                         # capturas FullHD/QuadHD
+python tests/integracao/teste_login_exe_resolucao.py "e.png"      # .exe em tela cheia
+python tests/integracao/teste_card_clicavel.py                     # card inteiro clicavel
+python tests/integracao/teste_dropdowns_liberacao.py               # dropdowns despertar/liberacao
+python tests/integracao/teste_perfil.py                           # perfil no hero + conta
+python tests/integracao/teste_contador_despertar.py                # contador do despertar
+python tests/integracao/teste_contador_libertacao.py               # contador da liberacao
+python tests/integracao/teste_schema_limpo.py                      # schema do banco sem sobras
+python tests/integracao/teste_missao_rapida.py                    # missao rapida (painel + cards)
+python tests/integracao/teste_zerar_dungeons.py                  # zerar dungeons limpa o card
+python tests/integracao/teste_filtros.py                        # busca + filtros + ordem
+python tests/integracao/teste_login_memo.py                         # memorizar conta
+python tests/integracao/teste_visual.py "C:\temp\captura.png"       # screenshot da tela local
+python tests/integracao/teste_visual_login.py "C:\temp\captura.png" # screenshot logado
+python tests/integracao/teste_visual_login2.py "C:\temp\captura.png" # screenshot da tela de login
+python tests/integracao/teste_card.py "C:\temp\captura.png"         # screenshot de 1 card
+python tests/integracao/teste_visual_cards.py "a.png" "b.png"        # hero + lista de cards (rolagem)
+python tests/integracao/teste_visual_edicao.py "c.png"              # tela de edicao
+python tests/integracao/teste_cards_retrato.py "d.png" 830          # cards com os retratos
+python tests/integracao/teste_login_exe.py "e.png"                  # E2E do .exe (login -> tela)
 pyinstaller "Controle Grand Chase.spec" --noconfirm                    # build
 ```
 Resultados esperados: `PIL abriu OK`, `INTEGRACAO OK`, `ACOES OK`, `EDICAO OK`,

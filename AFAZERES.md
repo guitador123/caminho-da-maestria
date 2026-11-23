@@ -109,10 +109,12 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 - [x] `teste_edicao_supabase.py` consertado (alguns contadores viraram `CTkComboBox`)
 - **Pronto quando:** `pytest` passa localmente e o check aparece verde no GitHub.
 
-### 9. Organizar a raiz do projeto
-- [ ] `src/` (código do app), `tests/`, `scripts/` (build, release, instalador), `tools/` (prévias, esboços, geradores de ícone)
-- [ ] Ajustar o `.spec` do PyInstaller, os `.bat` e o auto-update para os caminhos novos
-- **Atenção:** o auto-update dos PCs já instalados chama `app_grandchase.py` na raiz. Manter um atalho ali ou migrar com cuidado.
+### 9. Organizar a raiz do projeto ✅
+- [x] `src/` (18 módulos do app), `scripts/` (build, release, instalador, zerar semanal), `tools/` (prévias, esboços, `debug_app`, `limpar_duplicados`), `tests/integracao/` (os 45 `teste_*.py` + `credenciais_teste.py`). Os geradores de ícone/QR continuam em `assets/` (junto do que geram)
+- [x] `app_grandchase.py` da raiz virou um **atalho** para `src/` (os `.bat` e o auto-update dos PCs em modo git continuam abrindo o mesmo arquivo; os `.bat` não mudaram)
+- [x] `caminhos.app_dir()` e `atualizacao._app_dir()` continuam na raiz no modo fonte (`login_prefs.json`, planilha, `.git`); teste novo garante isso
+- [x] `.spec` aponta para `src/`; o `.exe` montado abre normalmente; `publicar_release.py` chama os scripts em `scripts/`
+- Para rodar um script de `tools/` ou `tests/integracao/` direto: `python tools/debug_app.py`, `python tests/integracao/teste_perfil.py` (o `_raiz.py` de cada pasta põe o `src/` no caminho)
 
 ### 10. Quebrar o `app_grandchase.py` (cerca de 2.700 linhas)
 - [ ] Extrair filtros, missão rápida, salvamento e importação/exportação de Excel em módulos próprios

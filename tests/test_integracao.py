@@ -1,4 +1,4 @@
-"""Testes de INTEGRACAO: os scripts `teste_*.py` da raiz, que precisam do
+"""Testes de INTEGRACAO: os scripts `tests/integracao/teste_*.py`, que precisam do
 Supabase (conta de teste) e/ou abrem janelas.
 
 Nao rodam por padrao nem no GitHub Actions. Para rodar (no PC, com o
@@ -55,7 +55,8 @@ def test_script(script):
     if not _tem_credenciais():
         pytest.skip("sem credenciais da conta de teste (.env.teste)")
     resultado = subprocess.run(
-        [sys.executable, script], cwd=RAIZ, capture_output=True,
-        text=True, encoding="utf-8", errors="replace", timeout=600)
+        [sys.executable, os.path.join("tests", "integracao", script)],
+        cwd=RAIZ, capture_output=True, text=True, encoding="utf-8",
+        errors="replace", timeout=600)
     saida = (resultado.stdout + resultado.stderr).strip()
     assert resultado.returncode == 0, saida[-3000:]

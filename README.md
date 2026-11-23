@@ -85,7 +85,7 @@ abre normalmente.
 ### Publicar uma versão nova (para o `.exe` se atualizar)
 
 ```bash
-python publicar_release.py        # gera a release no GitHub
+python scripts/publicar_release.py        # gera a release no GitHub
 ```
 
 Esse script grava a versão (o commit), empacota o programa, **audita o
@@ -112,11 +112,11 @@ python -m pytest -m integracao
 Os testes de lógica ficam em `tests/` e rodam no **GitHub Actions** a cada
 push (`.github/workflows/testes.yml`, Windows, Python 3.11 e 3.14).
 Os de integração são os scripts `teste_*.py` da raiz (dá para rodar um
-sozinho: `python teste_perfil.py`). O `teste_zerar_semanais.py` fica fora da
+sozinho: `python tests/integracao/teste_perfil.py`). O `teste_zerar_semanais.py` fica fora da
 suíte e só roda com `--confirmar`.
 
 A conta de teste é `teste@teste.com`. A **senha não fica no repositório**:
-os testes leem a senha (nessa ordem) dos argumentos (`python teste_x.py email senha`),
+os testes leem a senha (nessa ordem) dos argumentos (`python tests/integracao/teste_x.py email senha`),
 da variável de ambiente `GC_TESTE_SENHA` ou do arquivo local `.env.teste`
 (ignorado pelo git), com a linha:
 
@@ -128,25 +128,42 @@ GC_TESTE_SENHA=a-senha-da-conta-de-teste
 
 ## Estrutura
 
-| Arquivo | O que é |
+```
+app_grandchase.py     atalho para abrir pelo código (NÃO mover: o auto-update usa)
+iniciar.bat           prepara o .venv e abre (1ª vez)
+atualizar.bat         git pull + abre (PCs da guilda no modo git)
+requirements.txt      dependências (versões fixas) + constraints.txt
+Controle Grand Chase.spec   build do .exe (PyInstaller)
+src/                  o código do app
+scripts/              build, release, instalador, zerar semanal
+tools/                prévias, esboços, diagnóstico
+tests/                pytest (lógica pura) + tests/integracao/ (teste_*.py)
+sql/                  banco: schema, RLS e funções (SQL Editor do Supabase)
+assets/               imagens (fundo, retratos, ícones, QR do Pix)
+```
+
+| Em `src/` | O que é |
 |---|---|
 | `app_grandchase.py` | tela principal (cards, filtros, perfil, hero) |
+| `login.py` / `auth.py` | tela de login e login no Supabase |
 | `card_personagem.py` | o card de cada personagem (com as regras de cor) |
-| `janela_personagem.py` | tela de edição |
-| `janela_perfil.py` | janela "Minha conta" |
-| `janela_doacao.py` | painel lateral de doação (Pix/QR) |
-| `janela_nivel.py` | edição do Nível do Chaser |
-| `janela_missao_rapida.py` | painel de Missão Rápida |
+| `janela_*.py` | edição do personagem, perfil, doação, nível, missão rápida |
 | `tema_visual.py` / `tema_login.py` | cores, layout e cenário (PIL) |
-| `supabase_db.py` | acesso ao banco (tabelas, upsert, RLS) |
-| `auth.py` | login no Supabase |
+| `supabase_db.py` | acesso ao banco (tabelas, salvamento atômico, RLS) |
+| `atualizacao.py` / `assinatura.py` | auto-update e assinatura das releases |
+| `registro.py` | log de erros (`%LOCALAPPDATA%\Caminho da Maestria\gc_app.log`) |
 | `pix_pagamento.py` | chave Pix, payload e QR Code |
 | `opcoes.py` | as opções do Excel (listas de itens) |
-| `sql/` | scripts de banco (rodar no SQL Editor do Supabase) |
-| `assets/` | imagens (fundo, retratos, ícones de perfil, de Chaser, QR do Pix) |
+| `caminhos.py` | onde ficam os arquivos (fonte e .exe) |
+
+| Em `scripts/` | O que é |
+|---|---|
+| `publicar_release.py` | build + instalador + assinatura + release no GitHub |
 | `gerar_instalador.py` | monta o instalador (revisando o bundle por segredos) |
-| `auditoria_instalador.py` | revisa o `.zip` do instalador antes de distribuir |
-| `HANDOFF.md` | o histórico completo do projeto (leia antes de mexer) |
+| `auditoria_instalador.py` | revisa o `.zip` antes de distribuir |
+| `zerar_semanais_semanal.py` | zera as semanais (o pg_cron já faz no servidor) |
+
+O `HANDOFF.md` tem o histórico completo do projeto (leia antes de mexer).
 
 ---
 

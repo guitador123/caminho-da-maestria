@@ -105,3 +105,17 @@ def test_limpar_sobras_apaga_so_as_antigas(tmp_path, monkeypatch):
     assert not antiga.exists()
     assert nova.exists()          # pode ser uma atualizacao em andamento
     assert outra.exists()         # nao e do app
+
+
+def test_pasta_do_programa_e_a_raiz_com_o_atalho():
+    """No modo fonte, o auto-update (git pull, reabrir) e os arquivos
+    locais (login_prefs.json, planilha) usam a RAIZ do projeto, onde fica
+    o atalho app_grandchase.py, e nao a pasta src/."""
+    import caminhos
+    raiz = a._app_dir()
+    assert raiz == caminhos.app_dir()
+    assert os.path.isfile(os.path.join(raiz, "app_grandchase.py"))
+    assert os.path.isdir(os.path.join(raiz, "src"))
+    assert os.path.isdir(os.path.join(raiz, "assets"))
+    assert a._comando_python().endswith(
+        '"' + os.path.join(raiz, "app_grandchase.py") + '"')
