@@ -126,9 +126,11 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 
 ## 🟢 Baixa (funcionalidades novas)
 
-### 11. Botão "Verificar atualização" e versão visível
-- [ ] Mostrar "versão X instalada" no app
-- [ ] Botão para procurar atualização na hora
+### 11. Botão "Verificar atualização" e versão visível ✅
+- [x] Versão no estilo `1.0.0` (`src/versao_app.py`); o botão "Instalar aplicativo" (que só dizia "em breve") virou **"Versão 1.0.0"**
+- [x] Clicar procura atualização na hora, em segundo plano (a tela não trava): "já está na mais recente", "sem internet", ou "Versão X disponível — atualizar agora?". Com alteração não salva, avisa e não atualiza
+- [x] A release ganha o número no **título** ("Caminho da Maestria 1.1.0"); o nome técnico (`v<data>-<commit>`) não mudou, para os `.exe` antigos continuarem se atualizando. `publicar_release.py` recusa publicar um número repetido
+- [x] Testes: `tests/test_atualizacao.py` (título → número, só verificar não instala nada) e `tests/integracao/teste_versao.py` (os 7 cenários do botão, com a instalação simulada)
 
 ### 12. Visão da guilda
 - [ ] Ranking ou painel com o progresso semanal de todos (leitura entre membros via RLS)

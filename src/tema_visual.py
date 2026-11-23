@@ -19,6 +19,7 @@ import os
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from registro import falha
+from versao_app import VERSAO
 
 DESIGN_W = 1152
 DESIGN_H = 820
@@ -67,7 +68,8 @@ SUBTITULO = (56, 188)
 BOTOES_LINHA1 = [
     # o "Apoiar" (doacao) ocupa o lugar do antigo botao "English"
     ("coracao", "Apoiar", (574, 131, 677, 175)),
-    ("monitor", "Instalar aplicativo", (689, 131, 857, 175)),
+    # a versao instalada; clicar procura atualizacao (app_atualizacao.py)
+    ("reiniciar", f"Versão {VERSAO}", (689, 131, 857, 175)),
     ("documento", "Exportar Excel", (869, 131, 1009, 175)),
 ]
 

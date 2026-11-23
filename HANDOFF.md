@@ -26,6 +26,9 @@
 > salvamento, Excel/SQLite e cartões estão em `src/app_*.py` (mixins que a
 > classe herda), as constantes em `config_app.py` e os helpers puros em
 > `dados_app.py`. Um método citado abaixo como "do app" pode estar num deles.
+> **Versão (item 11):** o número que o usuário vê fica em `src/versao_app.py`
+> (suba antes de cada release); o botão "Versão X.Y.Z" (`app_atualizacao.py`)
+> procura atualização na hora. O auto-update continua comparando o commit.
 
 ## 1. Objetivo Final
 Aplicativo desktop moderno (CustomTkinter) para controle de Grand Chase de uma guilda (~40 pessoas), com:

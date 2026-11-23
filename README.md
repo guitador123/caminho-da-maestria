@@ -84,13 +84,25 @@ abre normalmente.
 
 ### Publicar uma versão nova (para o `.exe` se atualizar)
 
+1. Suba o número em **`src/versao_app.py`** e faça o commit:
+   - `1.0.0 → 1.0.1` correção (nada novo para o usuário)
+   - `1.0.0 → 1.1.0` novidade (funcionalidade nova)
+   - `1.0.0 → 2.0.0` mudança grande (muda o jeito de usar)
+2. Publique:
+
 ```bash
 python scripts/publicar_release.py        # gera a release no GitHub
 ```
 
 Esse script grava a versão (o commit), empacota o programa, **audita o
-pacote** (nenhum segredo pode passar) e publica a *Release*. Aí é só
-esperar: todo `.exe` instalado atualiza sozinho na próxima abertura.
+pacote** (nenhum segredo pode passar) e publica a *Release* com o título
+"Caminho da Maestria 1.1.0". Ele **recusa** publicar um número que já saiu.
+Aí é só esperar: todo `.exe` instalado atualiza sozinho na próxima abertura,
+ou na hora, pelo botão **"Versão X.Y.Z"** da tela principal.
+
+> O nome técnico da release continua `v<data>-<commit>`: é por ele que os
+> `.exe` instalados descobrem que há versão nova. O número `1.1.0` é o que
+> aparece para o usuário.
 
 > Se você só mudou o **código** e usa o repositório nos PCs da guilda,
 > basta o `git push` normal — o `git pull` do startup traz a novidade.

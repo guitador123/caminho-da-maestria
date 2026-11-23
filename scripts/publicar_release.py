@@ -16,8 +16,13 @@ Depois disso, qualquer .exe instalado que abrir o programa:
   - baixa o .zip;
   - troca os arquivos e abre de novo.
 
-    python scripts/publicar_release.py            (sugere a proxima versao)
-    python scripts/publicar_release.py v1.2       (forca a versao)
+    python scripts/publicar_release.py
+
+A VERSAO que aparece para o usuario ("1.4.0") vem de src/versao_app.py:
+suba o numero (e faca o commit) ANTES de publicar. O script recusa
+publicar uma versao que ja saiu. O NOME da release continua
+v<data>-<commit> (e por ele que os .exe instalados se atualizam); a versao
+vai no titulo.
 """
 
 import io
@@ -48,23 +53,48 @@ def rodar(comando, **opcoes):
                           timeout=opcoes.get("timeout", 3600))
 
 
+def versoes_publicadas():
+    """Os numeros de versao (1.4.0) que ja estao no titulo de alguma
+    release no GitHub."""
+    from atualizacao import _numero_da_versao
+    resultado = rodar([GH, "release", "list", "--limit", "200", "--json",
+                       "name", "--repo", "guitador123/caminho-da-maestria"])
+    if resultado.returncode != 0:
+        raise SystemExit("ERRO: nao deu para listar as releases no GitHub:\n"
+                         + resultado.stderr.strip()[-600:])
+    import json
+    return {_numero_da_versao(item.get("name", ""))
+            for item in json.loads(resultado.stdout or "[]")} - {""}
+
+
 def main():
-    argumentos = sys.argv[1:]
-    if argumentos:
-        versao = argumentos[0]
-    else:
-        # a tag leva o commit: e assim o .exe sabe se a release e
-        # mais nova que ele (sem isso ele ficaria tentando atualizar)
-        try:
-            from atualizacao import caminho_git
-            sha = subprocess.run([caminho_git(), "rev-parse", "HEAD"],
-                                 cwd=RAIZ, capture_output=True, text=True,
-                                 encoding="utf-8", errors="replace",
-                                 timeout=60).stdout.strip()[:7]
-        except Exception:
-            sha = ""
-        versao = ("v" + datetime.now().strftime("%Y.%m.%d") +
-                  ("-" + sha if sha else ""))
+    if sys.argv[1:]:
+        raise SystemExit("A versao agora vem de src/versao_app.py (nao "
+                         "passe argumentos). Suba o numero la e rode de novo.")
+
+    from versao_app import VERSAO
+    if VERSAO in versoes_publicadas():
+        raise SystemExit(
+            f"ERRO: a versao {VERSAO} ja foi publicada.\n"
+            "Suba o numero em src/versao_app.py (1.0.1 = correcao, "
+            "1.1.0 = novidade, 2.0.0 = mudanca grande), faca o commit e "
+            "rode de novo.")
+    print(f"versao: {VERSAO}")
+
+    # o NOME da release (tag) leva o commit: e assim o .exe sabe se a
+    # release e mais nova que ele (sem isso ele ficaria tentando atualizar)
+    try:
+        from atualizacao import caminho_git
+        sha = subprocess.run([caminho_git(), "rev-parse", "HEAD"],
+                             cwd=RAIZ, capture_output=True, text=True,
+                             encoding="utf-8", errors="replace",
+                             timeout=60).stdout.strip()[:7]
+    except Exception:
+        sha = ""
+    if not sha:
+        raise SystemExit("ERRO: nao deu para ler o commit (git): sem ele os "
+                         ".exe instalados nao reconhecem a release")
+    versao = "v" + datetime.now().strftime("%Y.%m.%d") + "-" + sha
 
     # sem a chave privada nao da para assinar: para ANTES do build longo
     import assinatura
@@ -147,7 +177,8 @@ def main():
         print("    (a release antiga existe, apagando...)")
         rodar([GH, "release", "delete", versao, "--yes", "--cleanup-tag",
                "--repo", "guitador123/caminho-da-maestria"])
-    notas = (f"Versao {versao} de {datetime.now():%d/%m/%Y %H:%M}.\n\n"
+    notas = (f"Versao {VERSAO} de {datetime.now():%d/%m/%Y %H:%M} "
+             f"(commit {versao.rsplit('-', 1)[-1]}).\n\n"
              "O .exe instalado baixa esta versao sozinho na proxima vez "
              "que for aberto.")
     arquivos = [zip_caminho, sig_caminho]
@@ -156,13 +187,13 @@ def main():
         arquivos.append(instalador_zip)
     resultado = rodar([GH, "release", "create", versao] + arquivos +
                        ["--repo", "guitador123/caminho-da-maestria",
-                        "--title", f"Caminho da Maestria {versao}",
+                        "--title", f"Caminho da Maestria {VERSAO}",
                         "--notes", notas])
     print(resultado.stdout.strip() or resultado.stderr.strip()[-600:])
     if resultado.returncode != 0:
         raise SystemExit("ERRO ao publicar a release")
 
-    print(f"\n[OK] release {versao} publicada!")
+    print(f"\n[OK] versao {VERSAO} publicada (release {versao})!")
     print("     os .exe instalados vao se atualizar sozinhos")
 
 

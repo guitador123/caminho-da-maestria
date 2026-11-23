@@ -119,3 +119,66 @@ def test_pasta_do_programa_e_a_raiz_com_o_atalho():
     assert os.path.isdir(os.path.join(raiz, "assets"))
     assert a._comando_python().endswith(
         '"' + os.path.join(raiz, "app_grandchase.py") + '"')
+
+
+FEED_COM_TITULOS = """<feed>
+<entry><link href="https://github.com/x/y/releases/tag/v2026.11.23-aaaaaaa"/>
+  <title>Caminho da Maestria v2026.11.23-aaaaaaa</title>
+  <updated>2026-11-23T10:00:00Z</updated></entry>
+<entry><link href="https://github.com/x/y/releases/tag/v2026.11.24-bbbbbbb"/>
+  <title>Caminho da Maestria 1.0.0</title>
+  <updated>2026-11-24T10:00:00Z</updated></entry>
+</feed>"""
+
+
+@pytest.mark.parametrize("titulo, esperado", [
+    ("Caminho da Maestria 1.4.0", "1.4.0"),
+    ("Caminho da Maestria 10.20.30", "10.20.30"),
+    ("Caminho da Maestria v2026.11.23-053f554", ""),   # release antiga
+    ("", ""),
+    (None, ""),
+])
+def test_numero_da_versao(titulo, esperado):
+    assert a._numero_da_versao(titulo) == esperado
+
+
+def test_ultima_release_traz_sha_e_versao(monkeypatch):
+    monkeypatch.setattr(a, "_atom", lambda url: FEED_COM_TITULOS)
+    assert a.ultima_release() == ("bbbbbbb", "1.0.0")
+
+
+@pytest.fixture
+def modo_exe(monkeypatch):
+    monkeypatch.setattr(a, "tem_git", lambda: False)
+    monkeypatch.setattr(a, "_atom", lambda url: FEED_COM_TITULOS)
+
+
+def test_procurar_atualizacao_acha_versao_nova(modo_exe, monkeypatch):
+    monkeypatch.setattr(a, "versao_local", lambda: "aaaaaaa1234")
+    assert a.procurar_atualizacao() == {"nova": True, "versao": "1.0.0",
+                                        "erro": ""}
+
+
+def test_procurar_atualizacao_ja_na_ultima(modo_exe, monkeypatch):
+    monkeypatch.setattr(a, "versao_local", lambda: "bbbbbbb9999")
+    assert a.procurar_atualizacao()["nova"] is False
+
+
+def test_procurar_atualizacao_sem_internet(monkeypatch):
+    monkeypatch.setattr(a, "tem_git", lambda: False)
+    monkeypatch.setattr(a, "versao_local", lambda: "aaaaaaa")
+
+    def sem_rede(url):
+        raise OSError("sem internet")
+    monkeypatch.setattr(a, "_atom", sem_rede)
+    resultado = a.procurar_atualizacao()
+    assert resultado["nova"] is False and resultado["erro"]
+
+
+def test_procurar_atualizacao_nao_instala_nada(modo_exe, monkeypatch):
+    def proibido(*args, **kwargs):
+        raise AssertionError("so verificar: nao pode aplicar")
+    monkeypatch.setattr(a, "aplicar_atualizacao", proibido)
+    monkeypatch.setattr(a, "_agendar_troca", proibido)
+    monkeypatch.setattr(a, "versao_local", lambda: "aaaaaaa")
+    a.procurar_atualizacao()

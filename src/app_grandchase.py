@@ -35,6 +35,7 @@ from app_arquivos import ArquivosMixin        # Excel, SQLite, tabela
 from app_salvamento import SalvamentoMixin    # Supabase, nivel, preferencias
 from app_missao import MissaoMixin            # missao rapida, zerar dungeons
 from app_cartoes import CartoesMixin          # cartoes de estatistica
+from app_atualizacao import AtualizacaoMixin  # botao da versao (atualizar)
 
 # constantes e helpers (reexportados: outros modulos e os testes importam
 # daqui, ex.: `from app_grandchase import FILTRO_VOID, _num`)
@@ -66,7 +67,7 @@ _registrar = registrar
 
 
 class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
-                    MissaoMixin, CartoesMixin, ctk.CTk):
+                    MissaoMixin, CartoesMixin, AtualizacaoMixin, ctk.CTk):
     def __init__(self, user=None, supabase=None):
         super().__init__()
         # lido na criacao (os testes ligam app_grandchase.MOSTRAR_TABELA antes)
@@ -971,7 +972,7 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         """Clique nos botoes desenhados no canvas."""
         acoes = {
             "topo0": self._abrir_doacao,
-            "topo1": lambda: self.status("Instalar aplicativo: em breve."),
+            "topo1": self.procurar_atualizacao,     # botao "Versao X.Y.Z"
             "topo2": self.save_excel,
             "topo3": self.zerar_dungeons,
             "topo4": self.alternar_missao,

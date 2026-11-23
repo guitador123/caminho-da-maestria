@@ -241,8 +241,20 @@ def _ultima_release():
     return URL_DOWNLOAD, _versao_da_release()
 
 
-def _versao_da_release():
-    """A versao (sha) da release mais recente, ou "" se nao houver.
+def _numero_da_versao(titulo):
+    """'Caminho da Maestria 1.4.0' -> '1.4.0' ("" se o titulo nao tiver)."""
+    # o numero solto (nao a data da tag antiga, "v2026.11.23-053f554")
+    achado = re.search(r"(?<![\w.])([0-9]+\.[0-9]+\.[0-9]+)(?![\w.-])",
+                       titulo or "")
+    return achado.group(1) if achado else ""
+
+
+def ultima_release():
+    """(sha, versao) da release mais recente; ("", "") se nao houver.
+
+    O sha vem do NOME da release (v<data>-<sha>: e com ele que o app sabe
+    se e mais nova). A versao ("1.4.0") vem do TITULO; releases antigas,
+    sem numero no titulo, devolvem "".
 
     O feed vem em ordem de criacao, entao a gente procura a entrada com a
     data de `updated` mais nova (e a mesma que o GitHub chama de "latest").
@@ -251,8 +263,8 @@ def _versao_da_release():
         texto = _atom(FEED_RELEASES)
     except Exception:
         _falhou("ler o feed de releases")
-        return ""
-    melhor = ("", "")
+        return "", ""
+    melhor = ("", "", "")
     for entrada in re.findall(r"<entry>(.*?)</entry>", texto, re.S):
         tag = re.search(r"/v[0-9]{4}\.[0-9]{2}\.[0-9]{2}-([0-9a-f]{7,40})",
                         entrada)
@@ -260,8 +272,41 @@ def _versao_da_release():
         if not tag or not quando:
             continue
         if quando.group(1) > melhor[1]:
-            melhor = (tag.group(1).lower(), quando.group(1))
-    return melhor[0]
+            titulo = re.search(r"<title>(.*?)</title>", entrada, re.S)
+            melhor = (tag.group(1).lower(), quando.group(1),
+                      _numero_da_versao(titulo.group(1) if titulo else ""))
+    return melhor[0], melhor[2]
+
+
+def _versao_da_release():
+    """O sha da release mais recente, ou "" se nao houver."""
+    return ultima_release()[0]
+
+
+def procurar_atualizacao():
+    """So VERIFICA (nao baixa nem instala nada). Para o botao "Versao".
+
+    Devolve {"nova": bool, "versao": "1.4.0" ou "", "erro": "" ou texto}.
+    Sem internet/GitHub: nova=False e erro preenchido.
+    """
+    try:
+        sha_local = versao_local()
+        if tem_git():
+            sha_remoto, _mensagem = commit_remoto()
+            if not sha_remoto:
+                return {"nova": False, "versao": "",
+                        "erro": "nao deu para ler o GitHub"}
+            nova = not (sha_local and sha_local[:40] == sha_remoto[:40])
+            return {"nova": nova, "versao": "", "erro": ""}
+        sha_release, versao = ultima_release()
+        if not sha_release:
+            return {"nova": False, "versao": "",
+                    "erro": "nao deu para ler as releases"}
+        nova = not (sha_local and sha_local.lower().startswith(sha_release))
+        return {"nova": nova, "versao": versao, "erro": ""}
+    except Exception as erro:
+        _falhou("procurar atualizacao")
+        return {"nova": False, "versao": "", "erro": str(erro)}
 
 
 def _assinatura_confere(url_zip, zip_arquivo, temporario):
