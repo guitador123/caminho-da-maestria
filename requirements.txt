@@ -2,28 +2,38 @@
 #  Caminho da Maestria - dependencias
 #
 #  Instalar:  python -m pip install -r requirements.txt
+#  (Python 3.11 ou mais novo)
+#
+#  As versoes sao FIXAS (==): uma versao nova de uma biblioteca
+#  nao entra sozinha nos PCs da guilda no proximo atualizar.bat.
+#  As dependencias indiretas ficam travadas no constraints.txt.
 #
 #  (o app tambem roda pelo instalador, que ja traz tudo embutido)
 # ============================================================
 
+-c constraints.txt
+
 # interface
-customtkinter>=5.2
+customtkinter==6.0.0
 
 # banco de dados (Supabase: auth + postgres/postgrest)
-supabase>=2.0
+supabase==2.34.1
 
 # imagens (fundos, icones, QR Code, recorte dos retratos)
-pillow>=10.0
+pillow==12.3.0
 
 # Excel (importar/exportar a planilha)
-pandas>=2.0
-openpyxl>=3.1
+pandas==3.0.3
+openpyxl==3.1.5
 
 # numerico (o gradiente do cenario e do fundo do login)
-numpy>=1.26
+numpy==2.4.6
 
 # QR Code do Pix
-qrcode>=7.4
+qrcode==8.2
+
+# assinatura das releases (confere a atualizacao do .exe)
+cryptography==49.0.0
 
 # --- so para empacotar o .exe (nao e preciso no PC do usuario) ---
-# pyinstaller>=6.0
+# pyinstaller==6.22.3

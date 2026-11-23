@@ -63,10 +63,13 @@ do GitHub for comprometida, todos os PCs da guilda rodam o código do invasor.
 
 ## 🟠 Alta
 
-### 4. Fixar as versões das dependências
+### 4. Fixar as versões das dependências ✅
 Com `>=` sem limite em `requirements.txt`, uma versão nova do `customtkinter`
 ou do `supabase` pode quebrar os PCs da guilda no próximo `atualizar.bat`.
-- [ ] Trocar para `==` com as versões que funcionam hoje (ou gerar um lock file)
+- [x] `requirements.txt` com `==` (as versões do build testado) + `constraints.txt` travando as 42 dependências, inclusive as indiretas
+- [x] Instalação limpa num `.venv` novo = lock idêntico; `pip check` OK; testes de assinatura, RLS, integração e missão rápida passaram nesse `.venv`
+- [x] Todas as 42 têm wheel para Python 3.11 no Windows (o mínimo do README)
+- Obs.: para atualizar uma biblioteca, troque a versão no `requirements.txt` e no `constraints.txt`, rode os testes e publique uma release. Vale revisar a cada poucos meses (ex.: `certifi`, que traz os certificados).
 - **Pronto quando:** `pip install -r requirements.txt` num `.venv` novo instala exatamente as mesmas versões.
 
 ### 5. Revisar a planilha `Controle Grand Chase (1).xlsx` no repositório
