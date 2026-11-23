@@ -49,6 +49,19 @@ from dados_app import (  # noqa: F401
     _num, _ordenar_colunas, _coluna_dungeon_semanal, _coluna_no_df)
 from app_arquivos import ttk_treeview_moderno, _estilizar_ttk  # noqa: F401
 
+# o que outros modulos e os testes importam DAQUI (reexportado)
+__all__ = [
+    "GrandChaseApp", "MOSTRAR_TABELA", "MOSTRAR_IMPORTACAO",
+    "FILTRO_MAZMORRAS", "FILTRO_VOID", "FILTRO_PROGRESSO",
+    "MODO_MISSAO_JANELA", "MODO_MISSAO_CARD", "NIVEL_CHASER_PADRAO",
+    "COLUNA_NIVEL", "ABA_GERAL", "ABA_PECAS", "ABA_ACESSORIOS",
+    "ABA_SEMANAIS", "ROTULOS_COLUNAS", "BASE_DIR", "BACKGROUND_PATH",
+    "EXCEL_DEFAULT", "DB_FILE", "_mesmo_arquivo", "_colunas_conhecidas",
+    "_rotular_colunas", "_verdadeiro", "_num", "_ordenar_colunas",
+    "_coluna_dungeon_semanal", "_coluna_no_df", "ttk_treeview_moderno",
+    "_estilizar_ttk",
+]
+
 # ---------------------------------------------------------------------------
 # Configuracao visual
 # ---------------------------------------------------------------------------
@@ -768,8 +781,8 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
                     cor=tv.CORES["olho"], tags=("perfil",))
 
         # --- a area clicavel --------------------------------------------
-        item = self.canvas.create_rectangle(x1, y1, x2, y2, fill="", outline="",
-                                            tags=("perfil",))
+        self.canvas.create_rectangle(x1, y1, x2, y2, fill="", outline="",
+                                     tags=("perfil",))
         self.canvas.tag_bind("perfil", "<Button-1>",
                              lambda e: self._abrir_perfil())
         self.canvas.tag_bind("perfil", "<Enter>",

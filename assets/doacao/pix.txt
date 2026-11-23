@@ -1,4 +1,4 @@
 # A chave Pix do projeto (e-mail, telefone ou chave aleatoria).
 # Troque aqui e rode:  python assets\doacao\gerar_qr.py
 # (o script regera o QR Code e o "copia e cola")
-+55 (19) 98146-6471
++5519981466471

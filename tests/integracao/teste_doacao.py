@@ -142,7 +142,7 @@ def main(argv):
     app.update()
     mensagem = painel.status.cget("text")
     print(f"   status: {mensagem!r}")
-    if "copiada" not in mensagem:
+    if "copiado" not in mensagem.lower():
         print("   FALHOU: a chave nao foi copiada")
         return 1
     print("   -> OK")

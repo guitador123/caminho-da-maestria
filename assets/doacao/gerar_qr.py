@@ -5,12 +5,17 @@ Gera o QR Code do Pix e o payload "copia e cola" a partir da chave.
     assets/doacao/pix.txt      -> a chave Pix (e-mail, telefone ou
                                   aleatoria) — VOCE edita este arquivo
     assets/doacao/nome.txt     -> o nome que aparece no recibo (opcional)
-    assets/doacao/pix_payload.txt  -> gerado por este script
-    assets/doacao/qr_pix.png   -> gerado por este script
+    assets/doacao/pix_payload.txt  -> gerado (o "copia e cola")
+    assets/doacao/qr_pix.png   -> gerado (copia de reserva do QR)
+    assets/qrcode-pix.png      -> gerado (o QR que o painel MOSTRA)
 
-Depois de trocar a chave, rode:
+Os tres saem do MESMO payload (nunca ficam diferentes). O QR sai no
+tamanho em que o painel mostra (LADO_QR px), com a margem branca de 4
+modulos que o padrao pede: o painel nao estica a imagem.
 
-    python assets\\doacao\\gerar_qr.py
+Depois de trocar a chave, rode (--forcar troca os arquivos existentes):
+
+    python assets\\doacao\\gerar_qr.py --forcar
 
 (precisa de `qrcode`:  python -m pip install qrcode)
 """
@@ -48,19 +53,6 @@ def _ler(nome, padrao=""):
     return " ".join(uteis) if nome.endswith("payload.txt") else uteis[0]
 
 
-def _crc16(payload):
-    """CRC16-CCITT (0x1021) usado no payload do Pix."""
-    crc = 0xFFFF
-    for byte in payload.encode("utf-8"):
-        crc ^= byte << 8
-        for _ in range(8):
-            if crc & 0x8000:
-                crc = ((crc << 1) ^ 0x1021) & 0xFFFF
-            else:
-                crc = (crc << 1) & 0xFFFF
-    return f"{crc:04X}"
-
-
 # o payload e montado pelo modulo compartilhado (o app usa o mesmo)
 monta_payload = pix_pagamento.monta_payload
 _crc16 = pix_pagamento._crc16
@@ -90,15 +82,25 @@ def main():
 
     # 3) gera TUDO em memoria antes de gravar qualquer coisa
     payload = monta_payload(chave, nome)
+    # confere a estrutura e o CRC antes de gravar qualquer coisa
+    campos = pix_pagamento.campos_do_payload(payload)
+    if campos.get("26.01") != pix_pagamento.normalizar_chave(chave):
+        raise SystemExit("ERRO: a chave no payload nao bate com o pix.txt")
 
-    qr = qrcode.QRCode(box_size=8, border=2)
+    # o modulo inteiro e o maior que cabe no LADO_QR do painel (pixels
+    # exatos: o QR nao e esticado e o celular le de primeira)
+    from janela_doacao import LADO_QR
+    qr = qrcode.QRCode(border=4,
+                       error_correction=qrcode.constants.ERROR_CORRECT_M)
     qr.add_data(payload)
     qr.make(fit=True)
+    qr.box_size = max(1, LADO_QR // (qr.modules_count + 2 * qr.border))
     imagem = qr.make_image(fill_color="black", back_color="white").convert("RGB")
 
     # 4) so agora grava (payload e QR vao juntos)
     destino_payload = os.path.join(PASTA, "pix_payload.txt")
     destino_qr = os.path.join(PASTA, "qr_pix.png")
+    destino_mostrado = os.path.join(RAIZ, "assets", pix_pagamento.IMAGEM_QR)
 
     forcar = "--forcar" in sys.argv
     if os.path.exists(destino_payload) and not forcar:
@@ -113,6 +115,11 @@ def main():
 
     imagem.save(destino_qr)
     print(f"[OK] {destino_qr} ({imagem.size[0]}x{imagem.size[1]})")
+    if os.path.exists(destino_mostrado) and not forcar:
+        print(f"[AVISO] {destino_mostrado} NAO foi trocado (use --forcar).")
+    else:
+        imagem.save(destino_mostrado)
+        print(f"[OK] {destino_mostrado} (o QR que o painel mostra)")
 
 
 if __name__ == "__main__":

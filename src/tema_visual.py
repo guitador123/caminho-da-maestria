@@ -15,7 +15,6 @@ O layout e descrito em unidades de design (1152 x 820, o tamanho do mockup)
 e escalado proporcionalmente para o tamanho da janela.
 """
 
-import os
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from registro import falha
@@ -474,7 +473,6 @@ def _desenhar_funil(lado, cor):
     img = Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     m = lado * 0.18
-    espessura = max(2, int(lado * 0.11))
     topo = (m, m * 0.8)
     baixo = (lado - m, lado * 0.42)
     d.polygon([topo, baixo, (lado / 2, lado - m * 0.6),

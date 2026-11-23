@@ -102,15 +102,30 @@ def _crc16(payload):
     return "%04X" % crc
 
 
-def monta_payload(chave_pix, nome_pix, cidade="SAO PAULO", valor=None):
-    """Monta o payload EMV do Pix (BR.GOV.BCB.PIX)."""
+def monta_payload(chave_pix, nome_pix, cidade="SAO PAULO", valor=None,
+                  txid="***", gui="BR.GOV.BCB.PIX"):
+    """Monta o payload "copia e cola" (BR Code) de um Pix estatico.
+
+    Segue o manual do BR Code do Banco Central:
+      00 versao | 26 conta (00 = GUI, 01 = chave) | 52 categoria |
+      53 moeda (986 = real) | 54 valor (opcional) | 58 pais | 59 nome |
+      60 cidade | 62 dados extras (05 = identificador) | 63 CRC16
+
+    A chave vai normalizada (telefone so com + e digitos), senao o banco
+    de quem paga nao acha a conta.
+
+    Antes (ate 24/11/2026) havia um campo "01" invalido (= "26") e faltava
+    o "00" do GUI dentro do campo 26: o payload gerado aqui nao era um Pix
+    valido. O app usa o payload pronto (pix_payload.txt), entao o QR da
+    doacao nao foi afetado; so o qr_pix.png (reserva) estava quebrado.
+    """
     def campo(tag, conteudo):
         return "%s%02d%s" % (tag, len(conteudo), conteudo)
 
+    conta = campo("00", gui) + campo("01", normalizar_chave(chave_pix))
     partes = [
-        "000201",
-        campo("01", "26"),
-        campo("26", "BR.GOV.BCB.PIX01%02d%s" % (len(chave_pix), chave_pix)),
+        campo("00", "01"),
+        campo("26", conta),
         campo("52", "0000"),
         campo("53", "986"),
     ]
@@ -119,8 +134,33 @@ def monta_payload(chave_pix, nome_pix, cidade="SAO PAULO", valor=None):
     partes.append(campo("58", "BR"))
     partes.append(campo("59", nome_pix[:25]))
     partes.append(campo("60", cidade[:15]))
+    partes.append(campo("62", campo("05", txid[:25])))
     sem_crc = "".join(partes) + "6304"
     return sem_crc + _crc16(sem_crc)
+
+
+def campos_do_payload(payload):
+    """Le um payload BR Code em {campo: valor}; o campo 26 vira
+    {"26.00": GUI, "26.01": chave}. Levanta ValueError se estiver
+    malformado. Serve para conferir payloads (testes e gerar_qr)."""
+    def ler(texto, prefixo=""):
+        saida, i = {}, 0
+        while i < len(texto):
+            tag, tamanho = texto[i:i + 2], texto[i + 2:i + 4]
+            if len(tag) < 2 or not tamanho.isdigit():
+                raise ValueError(f"payload malformado na posicao {i}")
+            valor = texto[i + 4:i + 4 + int(tamanho)]
+            if len(valor) != int(tamanho):
+                raise ValueError(f"campo {prefixo}{tag} cortado")
+            saida[prefixo + tag] = valor
+            if not prefixo and tag in ("26", "62"):
+                saida.update(ler(valor, tag + "."))
+            i += 4 + int(tamanho)
+        return saida
+    campos = ler(payload)
+    if payload[-8:-4] != "6304" or _crc16(payload[:-4]) != payload[-4:]:
+        raise ValueError("CRC do payload nao confere")
+    return campos
 
 
 def payload_pronto():
@@ -198,12 +238,17 @@ def qr_imagem(lado=160):
         falha("importar qrcode")
         return None
     try:
-        qr = qrcode.QRCode(box_size=8, border=2)
+        qr = qrcode.QRCode(border=4)
         qr.add_data(dados)
         qr.make(fit=True)
+        if lado:
+            # o maior modulo inteiro que cabe: o QR fica nitido
+            qr.box_size = max(1, lado // (qr.modules_count + 2 * qr.border))
         imagem = qr.make_image(fill_color="black",
                                back_color="white").convert("RGB")
-        return imagem.resize((lado, lado), Image.LANCZOS)
+        if lado and imagem.width > lado:
+            imagem = imagem.resize((lado, lado), Image.NEAREST)
+        return imagem
     except Exception:
         falha("gerar o QR Code")
         return None

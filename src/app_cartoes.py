@@ -98,7 +98,6 @@ class CartoesMixin:
         if not self.itens_valores:
             return
         df_sem = self.dfs.get(ABA_SEMANAIS)
-        df_geral = self.dfs.get(ABA_GERAL)
 
         caminho = self._contar_verdadeiros(df_sem, "caminho_abissal")
         void123 = self._contar_verdadeiros(df_sem, "void_123")

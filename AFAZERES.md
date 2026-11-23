@@ -154,9 +154,20 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 - [x] A lógica foi para `src/filtros.py` (funções puras) com 20 testes em `tests/test_filtros.py`, incluindo a Torre das Ilusões, que tem o mesmo nome nas duas abas (Geral = andar do mês; Semanais = fez esta semana; o filtro usa a da semana)
 - [x] `tests/integracao/teste_filtro_ao_vivo.py` reproduz os dois casos na tela (falha no código antigo, passa no novo)
 
-### Ainda abertas
-- [ ] Pix: `monta_payload` usa o campo `01` = `26` (o padrão do Pix é `11`/`12`). O app usa o QR pronto (`pix_payload.txt`), então o QR da doação não é afetado; conferir antes de usar o `monta_payload`
-- [ ] Limpeza de imports sem uso (`login.py`, `tema_visual.py`, `janela_doacao.py`, `publicar_release.py`)
+### Pix (`monta_payload`) ✅
+- [x] O payload gerado pelo código não era um Pix válido: tinha um campo `01` = `26` inexistente e faltava o `0014` (GUI) dentro do campo 26. Agora segue o manual do BR Code e reproduz **caractere por caractere** o exemplo oficial do Banco Central (teste em `tests/test_helpers.py`); a chave vai normalizada e o `gerar_qr.py` confere estrutura e CRC antes de gravar
+- [x] `pix_pagamento.campos_do_payload()` lê e valida um payload (recusa CRC errado e campo cortado)
+- [x] Chave Pix trocada (24/11): `gerar_qr.py --forcar` gerou o copia e cola e o QR. Agora ele grava os TRÊS arquivos (`pix_payload.txt`, `qr_pix.png` e o `assets/qrcode-pix.png` que o painel mostra) a partir do mesmo payload, com a chave normalizada, a margem branca de 4 módulos e no tamanho exato do painel (245 px, sem esticar). Conferido: as duas imagens decodificam igual ao copia e cola
+
+### Painel de doação ✅
+- [x] Uma coluna só (480 px), tudo na mesma margem: valores em 3 colunas iguais, QR centralizado numa moldura branca com "Para: <nome>", copia e cola legível e botão "Copiar código Pix" com o aviso logo abaixo
+- [x] Cabe inteiro numa janela de 900 px; em janelas menores o conteúdo rola (a barra some quando tudo cabe). Esc fecha
+- [x] Bugs: o aviso de erro quebrava (faltava a cor `erro`); o rodapé citava "Cartão" (não existe); textos sem acento; o "Fechar" duplicava o X
+- [x] Copiar usa o `clip.exe` sem abrir janela (o conteúdo fica na área de transferência mesmo depois que o app fecha)
+
+### Limpeza de código ✅
+- [x] Imports sem uso removidos (`login.py`, `tema_visual.py`, `janela_doacao.py`, `publicar_release.py`, `previa_cenario.py`); os reexportados pelo `app_grandchase.py` agora estão declarados em `__all__`
+- [x] Variáveis nunca usadas, um f-string sem variável e o `_crc16` duplicado do `gerar_qr.py` removidos: o pyflakes fica limpo (só os `import _raiz`, que são de propósito)
 
 ## Ordem sugerida
 1 → 2 → 3 → 4 → 5 → 7 → 6 → 8 → 9 → 10 → 11 → 12 → 13 → 14

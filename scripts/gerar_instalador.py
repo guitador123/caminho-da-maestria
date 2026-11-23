@@ -331,7 +331,7 @@ def main():
 
     tamanho = os.path.getsize(zip_path) / (1024 * 1024)
     print()
-    print(f"[OK] instalador pronto:")
+    print("[OK] instalador pronto:")
     print(f"     pasta : {pasta}")
     print(f"     zip   : {zip_path} ({tamanho:.0f} MB)")
 

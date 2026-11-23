@@ -2,7 +2,6 @@
 import _raiz  # noqa: F401  (coloca src/ no sys.path)
 import sys
 
-from PIL import Image
 
 import tema_visual as tv
 

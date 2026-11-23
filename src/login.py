@@ -16,7 +16,6 @@ Uso:
 """
 
 import json
-import os
 import re
 
 import tkinter as tk

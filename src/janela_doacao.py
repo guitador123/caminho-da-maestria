@@ -4,47 +4,50 @@ Painel lateral de DOACAO (o drawer).
 
 O botao "Apoiar" do cabecalho abre este painel: ele desliza da direita
 por cima da tela principal (sem fechar o app) e mostra como apoiar o
-projeto:
+projeto, numa coluna so:
 
-  - emblema do app;
+  - emblema + titulo;
   - texto curto ("este app e de graca e vive de doacoes");
-  - valores sugeridos (o Pix e copia e cola: quem escolhe o valor no app
-    do banco);
-  - QR Code da chave Pix + a chave em texto (botao "Copiar");
-  - opcionalmente um link externo (assets/doacao/link.txt) que abre no
-    navegador.
+  - valores sugeridos (o Pix e estatico: quem escolhe o valor e o app do
+    banco);
+  - QR Code (no tamanho nativo, sem esticar) + para quem vai o Pix;
+  - o Pix copia e cola + botao "Copiar codigo Pix";
+  - o que o apoio cobre.
+
+Esc ou o X fecham.
 
 **Para mudar a chave Pix:** edite `assets/doacao/pix.txt` e rode
-`assets/doacao/gerar_qr.py` (gera o QR de novo).
+`python assets/doacao/gerar_qr.py --forcar` (gera o QR e o copia e cola).
 """
 
 import os
 import subprocess
-import sys
 import webbrowser
+from tkinter import TclError
 
 import customtkinter as ctk
 from PIL import Image
 
 import caminhos
 import pix_pagamento
-import tema_visual as tv
-from tkinter import TclError
-
 from registro import falha
 
 CORES = {
     "fundo": "#16112b",
     "painel": "#1e1a30",
     "painel_borda": "#3a3159",
+    "hover": "#2f2949",
     "texto": "#f2f0fa",
     "suave": "#a49dc4",
     "roxo": "#8b5cf6",
     "roxo_hover": "#7c3aed",
     "verde": "#22c55e",
+    "erro": "#fb7185",
 }
 
-LARGURA = 640          # o QR (360) + a coluna da chave
+LARGURA = 480          # largura do painel
+MARGEM = 24            # margem lateral (todas as secoes alinham nela)
+LADO_QR = 250          # o QR e gerado (gerar_qr.py) para caber neste tamanho
 VALORES = [("R$ 5", "O gelo"), ("R$ 20", "Humilde"),
            ("R$ 50", "Ganha VIP <3")]
 
@@ -54,26 +57,9 @@ def pasta_doacao():
 
 
 def chave_pix():
-    """O payload "copia e cola" do Pix.
-
-    Montado na hora a partir de `assets/doacao/pix.txt` (a fonte da
-    verdade). Se o `pix_payload.txt` existir, ele e conferido: quando a
-    chave mudou e o arquivo ainda e o velho, o payload antigo e
-    descartado e o novo e usado.
-    """
-    dados = pix_pagamento.payload()
-    if not dados:
-        return ""
-    caminho = os.path.join(pasta_doacao(), "pix_payload.txt")
-    try:
-        with open(caminho, "r", encoding="utf-8") as arquivo:
-            velho = arquivo.read().strip()
-    except Exception:
-        velho = ""
-    if velho and velho != dados:
-        # o arquivo gerado ainda e da chave antiga: usa o payload novo
-        pass
-    return dados
+    """O Pix "copia e cola" (o payload de `assets/doacao/pix_payload.txt`;
+    sem ele, montado na hora a partir da chave do `pix.txt`)."""
+    return pix_pagamento.payload()
 
 
 def link_externo():
@@ -90,23 +76,15 @@ def link_externo():
 
 
 def copiar_para_area(texto):
-    """Copia um texto para a area de transferencia (Windows)."""
+    """Copia um texto para a area de transferencia do Windows (clip.exe,
+    sem abrir janela). O conteudo continua la depois que o app fecha."""
     try:
-        subprocess.run(["clip"], input=texto.encode("utf-8"), check=False)
+        subprocess.run(["clip"], input=texto.encode("utf-8"), check=False,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         return True
     except Exception:
-        try:
-            self_clip = None
-            raiz = ctk.CTk()
-            raiz.withdraw()
-            raiz.clipboard_clear()
-            raiz.clipboard_append(texto)
-            raiz.update()
-            raiz.after(150, raiz.destroy)
-            return True
-        except Exception:
-            falha("copiar para a area de transferencia")
-            return False
+        falha("copiar para a area de transferencia")
+        return False
 
 
 def _quadro_do_ico(caminho, lado=256):
@@ -119,6 +97,22 @@ def _quadro_do_ico(caminho, lado=256):
         return imagem.convert("RGBA")
 
 
+def _imagem_do_qr():
+    """O QR que o painel mostra, no tamanho NATIVO (sem esticar)."""
+    foto = pix_pagamento.qr_imagem(0)          # 0 = nao redimensiona
+    if foto is None:
+        reserva = os.path.join(pasta_doacao(), "qr_pix.png")
+        if os.path.exists(reserva):
+            try:
+                foto = Image.open(reserva).convert("RGB")
+            except Exception:
+                falha("abrir o QR de reserva")
+    if foto is not None and foto.width > LADO_QR:
+        # imagem antiga, maior que o painel: reduz sem misturar os pixels
+        foto = foto.resize((LADO_QR, LADO_QR), Image.NEAREST)
+    return foto
+
+
 class PainelDoacao(ctk.CTkToplevel):
     """O drawer de doacao (desliza da direita)."""
 
@@ -129,30 +123,36 @@ class PainelDoacao(ctk.CTkToplevel):
         caminhos.aplicar_icone(self)
         self.overrideredirect(True)
         self.attributes("-topmost", True)
-        self.configure(fg_color=CORES["fundo"])
+        self.configure(fg_color=CORES["fundo"], border_width=1,
+                       border_color=CORES["painel_borda"])
+        self.bind("<Escape>", lambda _e: self.fechar())
 
         self._montar()
         self._posicionar(final=False)
         self.after(30, self._animar_entrada)
+        self.after(60, self.focus_force)
 
     # ------------------------------------------------------------- UI ------
+    def _titulo_secao(self, pai, texto, topo=16):
+        ctk.CTkLabel(pai, text=texto, font=ctk.CTkFont(size=11, weight="bold"),
+                     text_color=CORES["roxo"]).pack(anchor="w", padx=MARGEM,
+                                                   pady=(topo, 8))
+
     def _montar(self):
-        # --- cabecalho do painel -------------------------------------------
+        largura_util = LARGURA - 2 * MARGEM
+
+        # --- cabecalho -----------------------------------------------------
         topo = ctk.CTkFrame(self, fg_color="transparent")
-        topo.pack(fill="x", padx=20, pady=(16, 0))
+        topo.pack(fill="x", padx=MARGEM, pady=(16, 0))
 
         emblema = os.path.join(caminhos.assets_dir(), "assets", "app.ico")
-        if not os.path.exists(emblema):
-            emblema = os.path.join(caminhos.assets_dir(), "assets",
-                                   "login.png")
         if os.path.exists(emblema):
             try:
-                foto = _quadro_do_ico(emblema)
-                foto = foto.resize((46, 46), Image.LANCZOS)
+                foto = _quadro_do_ico(emblema).resize((44, 44), Image.LANCZOS)
                 self._foto_emblema = ctk.CTkImage(light_image=foto,
-                                                   dark_image=foto, size=(46, 46))
+                                                   dark_image=foto, size=(44, 44))
                 ctk.CTkLabel(topo, text="", image=self._foto_emblema,
-                             width=46, height=46).pack(side="left")
+                             width=44, height=44).pack(side="left")
             except Exception:
                 falha("desenhar o emblema da doacao")
 
@@ -162,155 +162,149 @@ class PainelDoacao(ctk.CTkToplevel):
                      font=ctk.CTkFont(size=11, weight="bold"),
                      text_color=CORES["roxo"]).pack(anchor="w")
         ctk.CTkLabel(textos, text="Caminho da Maestria",
-                     font=ctk.CTkFont(size=19, weight="bold"),
+                     font=ctk.CTkFont(size=20, weight="bold"),
                      text_color=CORES["texto"]).pack(anchor="w")
 
-        ctk.CTkButton(topo, text="\u2715", width=32, height=32,
+        ctk.CTkButton(topo, text="✕", width=32, height=32,
                       corner_radius=8, fg_color="transparent",
-                      hover_color="#2f2949", text_color=CORES["suave"],
+                      hover_color=CORES["hover"], text_color=CORES["suave"],
                       font=ctk.CTkFont(size=15),
-                      command=self.fechar).pack(side="right")
+                      command=self.fechar).pack(side="right", anchor="n")
 
-        # --- texto -----------------------------------------------------------
+        # --- conteudo (rola com a roda do mouse se a janela for baixa) ----
+        self.rolagem = ctk.CTkScrollableFrame(
+            self, fg_color="transparent", corner_radius=0,
+            scrollbar_button_color=CORES["painel_borda"],
+            scrollbar_button_hover_color=CORES["roxo"])
+        self.rolagem.pack(fill="both", expand=True, padx=(1, 1), pady=(4, 1))
+        corpo = self.rolagem
+        self.after(400, self._ajustar_rolagem)
+
         ctk.CTkLabel(
-            self,
-            text="Este app e de graca e sem anuncios. Se ele te ajuda no "
-                 "acompanhamento dos seus personagens, um pixinho ajuda a "
-                 "manter o projeto vivo (servidor, dominio e manutencao).",
+            corpo,
+            text="Este app é de graça e sem anúncios. Se ele te ajuda a "
+                 "acompanhar seus personagens, um pixinho ajuda a manter o "
+                 "projeto vivo.",
             font=ctk.CTkFont(size=13), text_color=CORES["suave"],
-            wraplength=LARGURA - 300, justify="left",
-        ).pack(anchor="w", padx=22, pady=(18, 4))
+            wraplength=largura_util, justify="left",
+        ).pack(anchor="w", padx=MARGEM, pady=(4, 0))
 
-        # --- valores sugeridos ----------------------------------------------
-        linha = ctk.CTkFrame(self, fg_color="transparent")
-        linha.pack(fill="x", padx=22, pady=(14, 2))
-        for i, (valor, legenda) in enumerate(VALORES):
+        # --- valores sugeridos (3 colunas iguais) --------------------------
+        linha = ctk.CTkFrame(corpo, fg_color="transparent")
+        linha.pack(fill="x", padx=MARGEM, pady=(14, 0))
+        for coluna, (valor, legenda) in enumerate(VALORES):
+            linha.grid_columnconfigure(coluna, weight=1, uniform="valor")
             caixa = ctk.CTkFrame(linha, fg_color=CORES["painel"],
-                                 width=190, corner_radius=14, border_width=1,
+                                 corner_radius=12, border_width=1,
                                  border_color=CORES["painel_borda"])
-            caixa.pack(side="left", padx=(0 if i == 0 else 8, 0))
-            # a largura dos rotulos e o que impoe a largura do cartao
-            ctk.CTkLabel(caixa, text=valor, width=170,
-                         font=ctk.CTkFont(size=22, weight="bold"),
-                         text_color=CORES["texto"]).pack(pady=(14, 0))
-            ctk.CTkLabel(caixa, text=legenda, width=170,
-                         font=ctk.CTkFont(size=13, weight="bold"),
-                         text_color=CORES["suave"]).pack(pady=(0, 14))
+            caixa.grid(row=0, column=coluna, sticky="nsew",
+                       padx=(0 if coluna == 0 else 5,
+                             0 if coluna == len(VALORES) - 1 else 5))
+            ctk.CTkLabel(caixa, text=valor,
+                         font=ctk.CTkFont(size=20, weight="bold"),
+                         text_color=CORES["texto"]).pack(pady=(12, 0))
+            ctk.CTkLabel(caixa, text=legenda,
+                         font=ctk.CTkFont(size=12),
+                         text_color=CORES["suave"]).pack(pady=(0, 12))
+        ctk.CTkLabel(corpo, text="Qualquer valor ajuda: você escolhe a quantia "
+                                "no app do banco.",
+                     font=ctk.CTkFont(size=11), text_color=CORES["suave"]
+                     ).pack(anchor="w", padx=MARGEM, pady=(8, 0))
 
-        # --- QR + chave ------------------------------------------------------
-        # o QR so e legivel a partir de 200 px (ele tem o payload longo),
-        # entao ele fica grande e centralizado, com a chave abaixo
-        corpo = ctk.CTkFrame(self, fg_color="transparent")
-        corpo.pack(fill="x", padx=22, pady=(16, 0))
+        # --- QR Code -------------------------------------------------------
+        self._titulo_secao(corpo, "PAGUE COM PIX")
+        cartao = ctk.CTkFrame(corpo, fg_color=CORES["painel"], corner_radius=14,
+                              border_width=1, border_color=CORES["painel_borda"])
+        cartao.pack(fill="x", padx=MARGEM)
 
-        # o QR so e legivel no tamanho original (360 px): encolher ele
-        # embaralha os modulos e o celular nao le
-        LADO_QR = 360
-        foto = pix_pagamento.qr_imagem(LADO_QR)
-        if foto is None:
-            reserva = os.path.join(pasta_doacao(), "qr_pix.png")
-            if os.path.exists(reserva):
-                try:
-                    foto = Image.open(reserva).convert("RGB").resize(
-                        (LADO_QR, LADO_QR), Image.LANCZOS)
-                except Exception:
-                    foto = None
+        foto = _imagem_do_qr()
         if foto is not None:
             try:
-                self._foto_qr = ctk.CTkImage(light_image=foto, dark_image=foto,
-                                             size=(LADO_QR, LADO_QR))
-                ctk.CTkLabel(corpo, text="", image=self._foto_qr,
-                             width=LADO_QR, height=LADO_QR).pack(side="left")
+                # o QR ja tem a margem branca; a moldura branca arredondada
+                # so acompanha o contorno
+                moldura = ctk.CTkFrame(cartao, fg_color="#ffffff",
+                                       corner_radius=12)
+                moldura.pack(pady=(16, 0))
+                self._foto_qr = ctk.CTkImage(light_image=foto,
+                                             dark_image=foto, size=foto.size)
+                ctk.CTkLabel(moldura, text="", image=self._foto_qr,
+                             width=foto.width, height=foto.height
+                             ).pack(padx=2, pady=2)
             except Exception:
                 falha("desenhar o QR Code")
 
-        lado = ctk.CTkFrame(corpo, fg_color="transparent")
-        lado.pack(side="left", fill="both", expand=True, padx=(18, 0))
+        ctk.CTkLabel(cartao, text="Escaneie com o app do seu banco",
+                     font=ctk.CTkFont(size=13, weight="bold"),
+                     text_color=CORES["texto"]).pack(pady=(10, 0))
+        ctk.CTkLabel(cartao, text=f"Para: {pix_pagamento.nome()}",
+                     font=ctk.CTkFont(size=12), text_color=CORES["suave"]
+                     ).pack(pady=(0, 12))
 
-        ctk.CTkLabel(lado, text="PIX COPIA E COLA",
-                     font=ctk.CTkFont(size=10, weight="bold"),
-                     text_color=CORES["roxo"]).pack(anchor="w")
-
-        self.caixa_chave = ctk.CTkFrame(lado, fg_color=CORES["painel"],
-                                        corner_radius=8, border_width=1,
+        # --- copia e cola --------------------------------------------------
+        self._titulo_secao(corpo, "OU USE O PIX COPIA E COLA")
+        self.caixa_chave = ctk.CTkFrame(corpo, fg_color=CORES["painel"],
+                                        corner_radius=10, border_width=1,
                                         border_color=CORES["painel_borda"])
-        self.caixa_chave.pack(fill="x", pady=(8, 0))
+        self.caixa_chave.pack(fill="x", padx=MARGEM)
         self.rotulo_chave = ctk.CTkLabel(
             self.caixa_chave, text="", anchor="w", justify="left",
-            wraplength=LARGURA - 430,
-            font=ctk.CTkFont(family="Consolas", size=10),
+            wraplength=largura_util - 28,
+            font=ctk.CTkFont(family="Consolas", size=11),
             text_color=CORES["texto"])
-        self.rotulo_chave.pack(fill="both", expand=True, padx=10, pady=8)
+        self.rotulo_chave.pack(fill="x", padx=14, pady=8)
         self._preencher_chave()
 
         self.botao_copiar = ctk.CTkButton(
-            lado, text="Copiar chave Pix", height=34, corner_radius=8,
+            corpo, text="Copiar código Pix", height=40, corner_radius=10,
             fg_color=CORES["roxo"], hover_color=CORES["roxo_hover"],
-            text_color="#ffffff", font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#ffffff", font=ctk.CTkFont(size=14, weight="bold"),
             command=self.copiar_chave)
-        self.botao_copiar.pack(fill="x", pady=(10, 0))
+        self.botao_copiar.pack(fill="x", padx=MARGEM, pady=(10, 0))
+        # o aviso aparece logo abaixo do botao (perto de quem clicou)
+        self.status = ctk.CTkLabel(corpo, text="", height=20,
+                                   font=ctk.CTkFont(size=12, weight="bold"),
+                                   text_color=CORES["verde"])
+        self.status.pack(pady=(4, 0))
 
         link = link_externo()
         if link:
             ctk.CTkButton(
-                lado, text="Abrir pagina de apoio", height=34, corner_radius=8,
-                fg_color="transparent", hover_color="#2f2949",
+                corpo, text="Abrir página de apoio", height=36, corner_radius=10,
+                fg_color="transparent", hover_color=CORES["hover"],
                 border_width=1, border_color=CORES["painel_borda"],
                 text_color=CORES["texto"], font=ctk.CTkFont(size=13),
                 command=lambda: self._abrir_link(link),
-            ).pack(fill="x", pady=(8, 0))
+            ).pack(fill="x", padx=MARGEM, pady=(4, 0))
 
+        # --- o que o apoio cobre (uma frase, sem lista) --------------------
         ctk.CTkLabel(
-            self,
-            text="Prefere outro valor? Qualquer quantia ajuda.  ·  Pix  ·  "
-                 "Cartao",
-            font=ctk.CTkFont(size=11), text_color=CORES["suave"],
-        ).pack(anchor="w", padx=22, pady=(14, 0))
+            corpo,
+            text="Seu apoio paga o servidor (Supabase), o domínio e o tempo "
+                 "de manutenção e das novas atualizações. Obrigado!",
+            font=ctk.CTkFont(size=12), text_color=CORES["suave"],
+            wraplength=largura_util, justify="left",
+        ).pack(anchor="w", padx=MARGEM, pady=(6, 16))
 
-        # --- o que o apoio cobre -------------------------------------------
-        ctk.CTkLabel(
-            self, text="O QUE O SEU APOIO COBRE",
-            font=ctk.CTkFont(size=10, weight="bold"),
-            text_color=CORES["roxo"],
-        ).pack(anchor="w", padx=22, pady=(22, 8))
-
-        for texto in ("Servidor e banco de dados (Supabase)",
-                      "Dominio e o endereco da pagina de apoio",
-                      "Tempo de manutencao e as novas atualizacoes"):
-            linha = ctk.CTkFrame(self, fg_color="transparent")
-            linha.pack(fill="x", padx=22, pady=3)
-            ctk.CTkLabel(linha, text="\u2713", width=18,
-                         font=ctk.CTkFont(size=13, weight="bold"),
-                         text_color=CORES["verde"]).pack(side="left")
-            ctk.CTkLabel(linha, text=texto, anchor="w",
-                         font=ctk.CTkFont(size=12),
-                         text_color=CORES["suave"]).pack(side="left", fill="x",
-                                                         expand=True)
-
-        # --- rodape -----------------------------------------------------------
-        rodape = ctk.CTkFrame(self, fg_color="transparent")
-        rodape.pack(fill="x", side="bottom", padx=22, pady=(0, 18))
-        self.status = ctk.CTkLabel(rodape, text="",
-                                   font=ctk.CTkFont(size=12, weight="bold"),
-                                   text_color=CORES["verde"])
-        self.status.pack(side="left")
-        ctk.CTkButton(rodape, text="Fechar", width=96, height=32,
-                      corner_radius=8, fg_color="transparent",
-                      hover_color="#2f2949", border_width=1,
-                      border_color=CORES["painel_borda"],
-                      text_color=CORES["suave"],
-                      font=ctk.CTkFont(size=12),
-                      command=self.fechar).pack(side="right")
+    def _ajustar_rolagem(self):
+        """Esconde a barra de rolagem quando tudo cabe na janela."""
+        try:
+            barra = getattr(self.rolagem, "_scrollbar", None)
+            visivel = getattr(self.rolagem, "_parent_canvas", self.rolagem)
+            # reqheight do quadro interno ja conta os espacamentos (pady)
+            if barra is not None and \
+                    self.rolagem.winfo_reqheight() <= visivel.winfo_height():
+                barra.grid_remove()
+        except TclError:
+            pass                      # janela ja fechada
+        except Exception:
+            falha("ajustar a rolagem do painel de doacao")
 
     # --------------------------------------------------------- acoes --------
     def _preencher_chave(self):
         chave = chave_pix()
-        if not chave:
-            self.rotulo_chave.configure(
-                text="sem chave (edite assets/doacao/pix.txt)")
-            return
+        texto = chave or "sem chave (edite assets/doacao/pix.txt)"
         try:
-            self.rotulo_chave.configure(text=chave)
+            self.rotulo_chave.configure(text=texto)
         except TclError:
             pass                      # janela ja fechada
         except Exception:
@@ -319,28 +313,42 @@ class PainelDoacao(ctk.CTkToplevel):
     def copiar_chave(self):
         chave = chave_pix()
         if not chave:
-            self._avisar("sem chave para copiar", erro=True)
+            self._avisar("Sem código Pix para copiar.", erro=True)
             return
-        if copiar_para_area(chave):
-            self._avisar("chave copiada! cole no Pix")
+        # no Windows o clip.exe (sem janela) e o principal: o que o Tk copia
+        # some da area de transferencia quando o app fecha
+        copiou = os.name == "nt" and copiar_para_area(chave)
+        if not copiou:
+            try:
+                self.clipboard_clear()
+                self.clipboard_append(chave)
+                self.update()
+                copiou = True
+            except TclError:
+                copiou = False
+        if copiou:
+            self._avisar("Código copiado! Cole no Pix do seu banco.")
         else:
-            self._avisar("nao consegui copiar", erro=True)
+            self._avisar("Não consegui copiar. Selecione o código acima.",
+                         erro=True)
 
     def _abrir_link(self, link):
         try:
             webbrowser.open(link)
         except Exception:
-            self._avisar("nao consegui abrir o navegador", erro=True)
+            falha("abrir a pagina de apoio")
+            self._avisar("Não consegui abrir o navegador.", erro=True)
 
     def _avisar(self, texto, erro=False):
         self.status.configure(text=texto,
                               text_color=CORES["erro"] if erro
                               else CORES["verde"])
-        self.after(3200, lambda: self.status.configure(text=""))
+        self.after(3200, lambda: self.status.winfo_exists()
+                   and self.status.configure(text=""))
 
     # ------------------------------------------------------- animacao -------
     def _posicao_final(self):
-        """(x, y) onde o painel fica quando aberto."""
+        """(x, y, altura) de onde o painel fica quando aberto."""
         try:
             x = self.app.winfo_rootx() + self.app.winfo_width() - LARGURA
             y = self.app.winfo_rooty()

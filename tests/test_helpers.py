@@ -65,3 +65,36 @@ def test_payload_pix_termina_com_crc_valido():
     corpo, crc = payload[:-4], payload[-4:]
     assert corpo.endswith("6304")
     assert pix._crc16(corpo) == crc
+
+
+# exemplo oficial do manual do BR Code (Banco Central)
+EXEMPLO_BCB = ("00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-"
+               "4266554400005204000053039865802BR5913Fulano de Tal6008"
+               "BRASILIA62070503***63041D3D")
+
+
+def test_payload_pix_igual_ao_exemplo_oficial_do_banco_central():
+    assert pix.monta_payload("123e4567-e12b-12d1-a456-426655440000",
+                             "Fulano de Tal", cidade="BRASILIA",
+                             gui="br.gov.bcb.pix") == EXEMPLO_BCB
+
+
+def test_payload_pix_tem_os_campos_do_padrao():
+    campos = pix.campos_do_payload(
+        pix.monta_payload("+55 (19) 98146-6471", "Fulano"))
+    assert campos["00"] == "01"
+    assert "01" not in campos                 # o campo invalido antigo
+    assert campos["26.00"] == "BR.GOV.BCB.PIX"
+    assert campos["26.01"] == "+5519981466471"   # chave normalizada
+    assert campos["53"] == "986" and campos["58"] == "BR"
+    assert campos["62.05"] == "***"
+
+
+@pytest.mark.parametrize("estragado", [
+    EXEMPLO_BCB[:-1] + "E",                   # CRC errado
+    EXEMPLO_BCB.replace("5913", "5920", 1),    # tamanho de campo errado
+    "lixo",
+])
+def test_campos_do_payload_recusa_payload_invalido(estragado):
+    with pytest.raises(ValueError):
+        pix.campos_do_payload(estragado)

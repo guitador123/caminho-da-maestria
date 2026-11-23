@@ -25,9 +25,7 @@ v<data>-<commit> (e por ele que os .exe instalados se atualizam); a versao
 vai no titulo.
 """
 
-import io
 import os
-import shutil
 import subprocess
 import sys
 import zipfile
