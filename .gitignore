@@ -9,6 +9,11 @@ service_role.txt
 .env
 .env.*
 secrets.txt
+# a chave privada de assinatura das releases (fica em ~/.caminho-da-maestria,
+# mas se alguem copiar para ca, nao sobe)
+*.pem
+*.key
+chave_release*
 login_prefs.json
 gc_app.log
 *.log

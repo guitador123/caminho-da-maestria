@@ -25,7 +25,9 @@ a = Analysis(
            (os.path.join(SPECPATH, 'assets', 'doacao', 'nome.txt'), 'assets/doacao'),
            (os.path.join(SPECPATH, 'assets', 'doacao', 'pix_payload.txt'), 'assets/doacao'),
            (os.path.join(SPECPATH, 'assets', 'doacao', 'qr_pix.png'), 'assets/doacao')],
-    hiddenimports=[],
+    # a assinatura das releases (atualizacao.py importa dentro da funcao)
+    hiddenimports=['assinatura',
+                   'cryptography.hazmat.primitives.asymmetric.ed25519'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

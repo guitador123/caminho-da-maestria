@@ -38,6 +38,7 @@ PROIBIDOS = [
     ("service_role key", re.compile(rb"service_role", re.I)),
     ("chave secreta do Supabase", re.compile(rb"sb_secret_", re.I)),
     ("JWT de servico", re.compile(rb"eyJ[A-Za-z0-9_\-]{40,}")),
+    ("chave privada", re.compile(rb"-----BEGIN [A-Z ]*PRIVATE KEY")),
 ]
 
 ARQUIVOS_IGNORADOS = {"login_prefs.json", "gc_app.log", "Thumbs.db"}

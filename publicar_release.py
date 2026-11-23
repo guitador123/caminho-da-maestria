@@ -6,7 +6,10 @@ O que ele faz:
   1. grava a versao (o commit) em `assets/versao.txt`;
   2. empacota o programa (pyinstaller);
   3. monta o .zip da release;
-  4. cria a release no GitHub (com `gh release create`).
+  4. assina o .zip (assinatura.py) e gera o `<zip>.sig`;
+  5. cria a release no GitHub (com `gh release create`).
+
+Precisa da chave privada de assinatura neste PC (veja assinatura.py).
 
 Depois disso, qualquer .exe instalado que abrir o programa:
   - ve que a release e nova;
@@ -61,6 +64,18 @@ def main():
         versao = ("v" + datetime.now().strftime("%Y.%m.%d") +
                   ("-" + sha if sha else ""))
 
+    # sem a chave privada nao da para assinar: para ANTES do build longo
+    import assinatura
+    if not os.path.exists(assinatura.caminho_chave_privada()):
+        raise SystemExit(
+            "ERRO: a chave de assinatura nao existe neste PC:\n"
+            f"  {assinatura.caminho_chave_privada()}\n"
+            "Restaure a sua copia (ou, so na primeira vez: "
+            "python assinatura.py gerar)")
+    if assinatura.chave_publica_da_privada() != assinatura.CHAVE_PUBLICA_HEX:
+        raise SystemExit("ERRO: a chave privada deste PC nao e a da chave "
+                         "publica embutida no app (assinatura.py)")
+
     print("1) gravando a versao...")
     resultado = rodar([PYTHON, "gravar_versao.py"])
     print(resultado.stdout.strip())
@@ -109,7 +124,19 @@ def main():
         print(resultado.stdout[-800:])
         raise SystemExit("ERRO: o pacote tem segredo (veja o relatorio)")
 
-    print("\n6) publicando a release no GitHub...")
+    # 6) a assinatura (o .exe instalado SO aceita a atualizacao se bater)
+    print("\n6) assinando o .zip (Ed25519)...")
+    import assinatura
+    sig_caminho = zip_caminho + ".sig"
+    conteudo_sig = assinatura.assinar(zip_caminho)
+    with open(sig_caminho, "w", encoding="ascii", newline="\n") as arquivo:
+        arquivo.write(conteudo_sig)
+    if not assinatura.verificar(zip_caminho, conteudo_sig):
+        raise SystemExit("ERRO: a assinatura nao confere com a chave "
+                         "publica embutida no app (assinatura.py)")
+    print(f"    {sig_caminho}")
+
+    print("\n7) publicando a release no GitHub...")
     # se ja existe uma release com esse nome, apaga (para republicar)
     antigo_release = rodar([GH, "release", "view", versao, "--repo",
                             "guitador123/caminho-da-maestria"])
@@ -120,7 +147,7 @@ def main():
     notas = (f"Versao {versao} de {datetime.now():%d/%m/%Y %H:%M}.\n\n"
              "O .exe instalado baixa esta versao sozinho na proxima vez "
              "que for aberto.")
-    arquivos = [zip_caminho]
+    arquivos = [zip_caminho, sig_caminho]
     instalador_zip = os.path.join(instalador, "Caminho-da-Maestria-Instalador.zip")
     if os.path.exists(instalador_zip):
         arquivos.append(instalador_zip)

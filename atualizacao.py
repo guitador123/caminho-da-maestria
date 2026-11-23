@@ -253,6 +253,30 @@ def _versao_da_release():
     return melhor[0]
 
 
+def _assinatura_confere(url_zip, zip_arquivo, temporario):
+    """Baixa o `<zip>.sig` e confere (Ed25519). False = NAO instalar."""
+    sig_arquivo = os.path.join(temporario, "programa.zip.sig")
+    try:
+        _pedir(url_zip + ".sig", sig_arquivo)
+        with open(sig_arquivo, "r", encoding="ascii",
+                  errors="replace") as arquivo:
+            conteudo = arquivo.read(4096)
+    except Exception as erro:
+        _registrar(f"RECUSADA: release sem assinatura ({erro!r})")
+        return False
+    try:
+        import assinatura
+        if assinatura.verificar(zip_arquivo, conteudo):
+            _registrar("assinatura da release: OK")
+            return True
+    except Exception as erro:
+        _registrar(f"RECUSADA: erro ao conferir a assinatura ({erro!r})")
+        return False
+    _registrar("RECUSADA: a assinatura da release NAO confere "
+               "(arquivo adulterado ou chave errada)")
+    return False
+
+
 def _atualizar_com_release():
     """Baixa a ultima Release e troca os arquivos (depois de fechar)."""
     url, _sha = _ultima_release()
@@ -262,6 +286,11 @@ def _atualizar_com_release():
     try:
         zip_arquivo = os.path.join(temporario, "programa.zip")
         _pedir(url, zip_arquivo)
+        # SO instala se a assinatura bater com a chave publica embutida
+        # (assim uma release falsa, mesmo no GitHub certo, e recusada)
+        if not _assinatura_confere(url, zip_arquivo, temporario):
+            shutil.rmtree(temporario, ignore_errors=True)
+            return False
         destino = os.path.join(temporario, "programa")
         with zipfile.ZipFile(zip_arquivo) as pacote:
             pacote.extractall(destino)
