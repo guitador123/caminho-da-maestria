@@ -2,7 +2,7 @@
 Teste da pendencia #3: Nivel do Chaser no banco.
 
 Valida:
-  1. a validacao do nivel (inteiro >= 0)
+  1. a validacao do nivel (inteiro de 0 a 999)
   2. o card da tela principal mostra o nivel e atualiza ao mudar
   3. a janela de edicao abre, valida e grava
   4. o valor vai para o dataframe (um valor por conta = todas as linhas)
@@ -32,15 +32,15 @@ def _janelas(app):
 
 def main(argv):
     # --- 1) validacao ----------------------------------------------------
-    print("1) validacao do nivel (inteiro >= 0):")
-    casos = [("385", 385), ("0", 0), (" 42 ", 42), ("1000000", 1000000)]
+    print("1) validacao do nivel (inteiro de 0 a 999):")
+    casos = [("385", 385), ("0", 0), (" 42 ", 42), ("999", 999)]
     for texto, esperado in casos:
         valor, erro = validar_nivel(texto)
         ok = valor == esperado and erro is None
         print(f"   {texto!r:12s} -> {valor!r} {erro or ''} {'OK' if ok else 'FALHOU'}")
         if not ok:
             return 1
-    invalidos = ["", "abc", "-1", "3.5", "12a", "1e3"]
+    invalidos = ["", "abc", "-1", "3.5", "12a", "1e3", "1000"]
     for texto in invalidos:
         valor, erro = validar_nivel(texto)
         ok = valor is None and erro

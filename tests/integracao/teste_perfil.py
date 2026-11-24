@@ -84,19 +84,55 @@ def main(argv):
 
     # --- 1b) a barra de EXP ----------------------------------------------
     print("\n1b) a barra de EXP:")
-    percentuais = [t for t in textos if t.endswith("%")]
-    print(f"   rotulos: {percentuais}")
-    esperado = min(100.0, app.nivel_chaser / 10.0)
-    if not percentuais:
-        print("   FALHOU: a barra de EXP nao mostra o percentual")
-        return 1
-    if abs(float(percentuais[0].replace("%", "")) - esperado) > 0.2:
-        print(f"   FALHOU: esperava {esperado:.1f}%, veio {percentuais[0]}")
+    # o % fica DENTRO da barra (desenhado na imagem): o app guarda o texto
+    from dados_app import progresso_exp
+    print(f"   dentro da barra: {app._texto_exp!r}")
+    esperado, proximo = progresso_exp(app.nivel_chaser)
+    if app._texto_exp != f"{esperado:.0f}%":
+        print(f"   FALHOU: esperava {esperado:.0f}%, veio {app._texto_exp}")
         return 1
     if "EXP" not in textos:
         print("   FALHOU: o rotulo EXP nao aparece")
         return 1
-    print(f"   -> OK (nivel {app.nivel_chaser} = {esperado:.1f}%)")
+    dica = [t for t in textos if t.startswith("Próximo distintivo")]
+    if not dica or f"Lv. {proximo}" not in dica[0]:
+        print(f"   FALHOU: a dica do proximo distintivo: {dica}")
+        return 1
+    # nivel 5 = 5% (faltam 95 para o 100); do 900 (ultimo distintivo) ao
+    # 999 a barra volta a subir de 0 a 100%
+    nivel_antigo = app.nivel_chaser
+    for nivel, texto in ((5, "5%"), (899, "99%"), (900, "0%"), (950, "51%"),
+                         (999, "100%  ·  MÁX")):
+        app.nivel_chaser = nivel
+        app._desenhar_perfil()
+        if app._texto_exp != texto:
+            print(f"   FALHOU: nivel {nivel} -> {app._texto_exp!r}")
+            app.nivel_chaser = nivel_antigo
+            return 1
+    app.nivel_chaser = nivel_antigo
+    app._desenhar_perfil()
+    print(f"   -> OK (nivel {app.nivel_chaser} = {esperado:.0f}% | {dica[0]})")
+
+    # a barra fica DENTRO do painel em 820 e em 900 px de altura
+    import tema_visual as tv
+    for altura in (820, 900):
+        app.geometry(f"1152x{altura}")
+        app.update()
+        time.sleep(0.4)
+        app.update()
+        app._tamanho_fundo = (0, 0)
+        app._redesenhar()
+        app.update()
+        _, py1, _, py2 = app.lay.caixa(tv.PERFIL_PAINEL)
+        itens = app.canvas.find_withtag("perfil")
+        baixo = max(app.canvas.bbox(i)[3] for i in itens
+                    if app.canvas.type(i) == "text"
+                    and app.canvas.itemcget(i, "text") == "EXP")
+        print(f"   {altura} px: legenda termina em {baixo:.0f}, "
+              f"painel termina em {py2:.0f}")
+        if baixo > py2:
+            print("   FALHOU: a barra de EXP saiu do painel")
+            return 1
 
     # --- 1c) a foto vem dos 25 personagens --------------------------------
     print("\n1c) a foto do perfil (uma das 25):")

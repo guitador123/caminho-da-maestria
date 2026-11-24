@@ -17,6 +17,7 @@ import tkinter as tk
 import customtkinter as ctk
 
 import caminhos
+from config_app import NIVEL_CHASER_MAXIMO
 from registro import falha
 
 CORES = {
@@ -36,8 +37,7 @@ NIVEL_MINIMO = 0
 def validar_nivel(texto):
     """'385' -> (385, None).  'abc' -> (None, 'mensagem de erro').
 
-    Regra do usuario: numero INTEIRO >= 0 (sem limite superior — a coluna
-    do banco e bigint).
+    Regra do usuario: numero INTEIRO de 0 a 999 (o maximo do jogo).
     """
     bruto = str(texto).strip()
     if bruto == "":
@@ -49,6 +49,8 @@ def validar_nivel(texto):
                       f"(ex.: {385}).")
     if valor < NIVEL_MINIMO:
         return None, f"O nível do chaser não pode ser menor que {NIVEL_MINIMO}."
+    if valor > NIVEL_CHASER_MAXIMO:
+        return None, f"O nível máximo do chaser é {NIVEL_CHASER_MAXIMO}."
     return valor, None
 
 

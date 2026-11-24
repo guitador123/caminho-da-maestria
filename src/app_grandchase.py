@@ -48,7 +48,8 @@ from config_app import (  # noqa: F401
     BACKGROUND_PATH, EXCEL_DEFAULT, DB_FILE)
 from dados_app import (  # noqa: F401
     _mesmo_arquivo, _colunas_conhecidas, _rotular_colunas, _verdadeiro,
-    _num, _ordenar_colunas, _coluna_dungeon_semanal, _coluna_no_df)
+    _num, _ordenar_colunas, _coluna_dungeon_semanal, _coluna_no_df,
+    progresso_exp)
 from app_arquivos import ttk_treeview_moderno, _estilizar_ttk  # noqa: F401
 
 # o que outros modulos e os testes importam DAQUI (reexportado)
@@ -750,21 +751,33 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         except Exception:
             falha("desenhar o avatar do perfil")
 
-        # --- a barra de EXP (preenche com o nivel do chaser) -----------
-        ex1, ey1, ex2, eh = lay.caixa(tv.PERFIL_EXP)
-        largura_total = max(1, ex2 - ex1)
-        percentual = min(100.0, max(0.0, float(self.nivel_chaser or 0) / 10.0))
-        self.canvas.create_image(ex1, ey1, anchor="nw", image=self._foto(
-            tv.retangulo_alfa(cor=(38, 34, 62), alfa=255,
-                              tamanho=(largura_total, eh), raio=eh / 2)))
-        if percentual > 0:
-            largura_preenchida = max(eh, largura_total * percentual / 100.0)
-            self.canvas.create_image(ex1, ey1, anchor="nw", image=self._foto(
-                tv.botao_gradiente("#a3e635", largura_preenchida, eh,
-                                   raio=eh / 2)))
-        self._texto(ex1, ey1 + eh + 6, "EXP", 11, cor=tv.CORES["olho"],
+        # --- a barra de EXP: o % ate o proximo distintivo -----------------
+        # (1-99, 100-199...: nivel 5 = 5%, faltam 95 para o 100)
+        # a ALTURA e um tamanho (lay.h), nao uma coordenada: passar por
+        # lay.caixa somava o deslocamento vertical e, em 900 px de altura,
+        # a barra crescia para fora do painel
+        bx1, by1, bx2, _ = tv.PERFIL_EXP
+        ex1, ey1 = lay.x(bx1), lay.y(by1)
+        largura_total = max(8, int(lay.w(bx2 - bx1)))
+        eh = max(12, int(lay.h(tv.PERFIL_EXP[3])))
+        percentual, proximo = progresso_exp(self.nivel_chaser)
+        # do 900 ao 999 a barra continua subindo; so no 999 aparece o MAX
+        self._texto_exp = (f"{percentual:.0f}%" if percentual < 100
+                           else "100%  ·  MÁX")
+        self.canvas.create_image(ex1, ey1, anchor="nw", tags=("perfil",),
+                                 image=self._foto(tv.barra_exp(
+                                     largura_total, eh, percentual,
+                                     self._texto_exp)))
+        legenda_y = ey1 + eh + lay.h(5)
+        self._texto(ex1, legenda_y, "EXP", 11, cor=tv.CORES["texto"],
                     peso="bold", tags=("perfil",))
-        self._texto(ex2, ey1 + eh + 6, f"{percentual:.1f}%", 11,
+        if proximo is None:
+            dica = "Distintivo máximo alcançado"
+        else:
+            faltam = proximo - int(self.nivel_chaser or 0)
+            dica = (f"Próximo distintivo: Lv. {proximo}  ·  "
+                    f"falta{'m' if faltam > 1 else ''} {faltam}")
+        self._texto(ex1 + largura_total, legenda_y, dica, 11,
                     cor=tv.CORES["suave"], peso="bold", anchor="ne",
                     tags=("perfil",))
 

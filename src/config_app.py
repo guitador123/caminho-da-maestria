@@ -36,6 +36,7 @@ MODO_MISSAO_CARD = "card"      # clicar no chip do card marca
 # constante; agora vem do banco (coluna user_characters.nivel_chaser) e pode
 # ser alterado na tela principal.
 NIVEL_CHASER_PADRAO = 385
+NIVEL_CHASER_MAXIMO = 999       # o nivel maximo do jogo
 
 COLUNA_NIVEL = "Nível do Chaser"
 

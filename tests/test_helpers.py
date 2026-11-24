@@ -4,6 +4,7 @@ import pytest
 
 import pix_pagamento as pix
 from card_personagem import _fracao, _inteiro, _verdadeiro
+from dados_app import progresso_exp
 from janela_nivel import validar_nivel
 
 
@@ -34,11 +35,30 @@ def test_verdadeiro(valor, esperado):
 @pytest.mark.parametrize("texto, valor, tem_erro", [
     ("385", 385, False), (" 0 ", 0, False), ("", None, True),
     ("abc", None, True), ("3.5", None, True), ("-1", None, True),
+    ("999", 999, False), ("1000", None, True),
 ])
 def test_validar_nivel(texto, valor, tem_erro):
     resultado, erro = validar_nivel(texto)
     assert resultado == valor
     assert bool(erro) is tem_erro
+
+
+@pytest.mark.parametrize("nivel, percentual, proximo", [
+    (0, 0.0, 100), (5, 5.0, 100), (99, 99.0, 100),
+    (100, 0.0, 200), (150, 50.0, 200), (385, 85.0, 400),
+    (899, 99.0, 900), (900, 0.0, None), (999 - 33, 66 * 100 / 99, None),
+    (999, 100.0, None),
+    (1500, 100.0, None),          # acima do maximo: trata como 999
+    (None, 0.0, 100), ("abc", 0.0, 100),
+])
+def test_progresso_exp_ate_o_proximo_distintivo(nivel, percentual, proximo):
+    assert progresso_exp(nivel) == (percentual, proximo)
+
+
+def test_barra_exp_tem_o_tamanho_pedido():
+    import tema_visual as tv
+    for pct in (0, 5, 100):
+        assert tv.barra_exp(352, 22, pct, f"{pct}%").size == (352, 22)
 
 
 @pytest.mark.parametrize("bruto, esperado", [

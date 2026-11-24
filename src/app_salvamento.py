@@ -16,6 +16,7 @@ from config_app import (
     ABA_PECAS,
     ABA_SEMANAIS,
     COLUNA_NIVEL,
+    NIVEL_CHASER_MAXIMO,
     NIVEL_CHASER_PADRAO)
 from dados_app import _ordenar_colunas, _rotular_colunas
 from opcoes import coluna_banco
@@ -169,7 +170,8 @@ class SalvamentoMixin:
             if texto in ("", "nan", "None"):
                 continue
             try:
-                self.nivel_chaser = max(0, int(float(texto.split(".")[0])))
+                self.nivel_chaser = min(NIVEL_CHASER_MAXIMO, max(
+                    0, int(float(texto.split(".")[0]))))
             except (TypeError, ValueError):
                 continue
             break
@@ -196,7 +198,7 @@ class SalvamentoMixin:
             numero = int(str(valor).strip())
         except (TypeError, ValueError):
             return False
-        if numero < 0:
+        if numero < 0 or numero > NIVEL_CHASER_MAXIMO:
             return False
         self.nivel_chaser = numero
         df = self.dfs.get(ABA_GERAL)

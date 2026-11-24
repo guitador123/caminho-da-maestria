@@ -15,6 +15,7 @@ O layout e descrito em unidades de design (1152 x 820, o tamanho do mockup)
 e escalado proporcionalmente para o tamanho da janela.
 """
 
+import os
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from registro import falha
@@ -87,7 +88,7 @@ PERFIL_TEXTO = (56 + 132, 258 + 52)          # x, y do texto
 PERFIL_ICONE = (790 - 76, 258 + 76)         # centro do icone do nivel
 PERFIL_ICONE_LADO = 142                      # tamanho do icone (design)
 # a barra de EXP (preenche conforme o nivel do chaser)
-PERFIL_EXP = (56 + 132, 258 + 106, 790 - 250, 16)   # x1, y1, x2, altura
+PERFIL_EXP = (56 + 132, 258 + 104, 790 - 250, 22)   # x1, y1, x2, ALTURA
 # a pasta com os icones por nivel do chaser (cl1.png, cl100.png, ...)
 PASTA_CHASER = "chaser"
 # a pasta com as 25 fotos de perfil (<personagem>_icon.png)
@@ -451,6 +452,57 @@ def botao_gradiente(cor, largura, altura, raio=12, clarear=0.0):
                                                radius=raio, fill=255)
     img.putalpha(mascara)
     return img
+
+
+def barra_exp(largura, altura, percentual, texto):
+    """A barra de EXP do perfil (imagem RGBA): trilho escuro, preenchimento
+    verde-limao com brilho e o `texto` (ex.: "5%") NO CENTRO da barra, em
+    branco com contorno escuro (legivel sobre o verde e sobre o trilho).
+
+    Desenhada em 2x e reduzida, para as bordas ficarem suaves.
+    """
+    escala = 2
+    largura = max(8, int(largura))
+    altura = max(8, int(altura))
+    lg, al = largura * escala, altura * escala
+    raio = al // 2
+    img = Image.new("RGBA", (lg, al), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # trilho
+    d.rounded_rectangle((0, 0, lg - 1, al - 1), radius=raio,
+                        fill=(24, 19, 44, 255), outline=(255, 255, 255, 46),
+                        width=escala)
+    # preenchimento (gradiente horizontal + brilho na metade de cima)
+    fim = int(lg * max(0.0, min(100.0, percentual)) / 100.0)
+    if fim > 0:
+        fim = max(fim, al)                     # nunca menor que a ponta
+        cheio = Image.new("RGBA", (fim, al))
+        inicio_cor, fim_cor = (101, 163, 13), (190, 242, 100)
+        dc = ImageDraw.Draw(cheio)
+        for x in range(fim):
+            t = x / max(1, fim - 1)
+            dc.line((x, 0, x, al), fill=tuple(
+                int(a + (b - a) * t) for a, b in zip(inicio_cor, fim_cor))
+                + (255,))
+        dc.rectangle((0, escala, fim, al // 2 - escala),
+                     fill=(255, 255, 255, 40))
+        mascara = Image.new("L", (fim, al), 0)
+        ImageDraw.Draw(mascara).rounded_rectangle(
+            (escala, escala, fim - 1 - escala, al - 1 - escala),
+            radius=raio - escala, fill=255)
+        img.paste(cheio, (0, 0), mascara)
+    # o texto, no centro
+    caminho_fonte = os.path.join(os.environ.get("WINDIR", r"C:\Windows"),
+                                 "Fonts", "segoeuib.ttf")
+    tamanho = int(al * 0.68)
+    try:
+        fonte = ImageFont.truetype(caminho_fonte, tamanho)
+    except OSError:
+        fonte = ImageFont.load_default(tamanho)
+    d.text((lg / 2, al / 2), texto, font=fonte, fill=(255, 255, 255, 255),
+           anchor="mm", stroke_width=3 * escala // 2,
+           stroke_fill=(20, 15, 38, 255))
+    return img.resize((largura, altura), Image.LANCZOS)
 
 
 def _variar(cor, fator=1.0):

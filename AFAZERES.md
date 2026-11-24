@@ -146,7 +146,9 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 - [x] No caminho: as legendas "characters complete" (Despertar/Libertação) viraram "personagens concluídos"
 
 ### Pendência vista no caminho
-- [ ] A barra de EXP do perfil sai do painel com a janela em 900 px de altura (já acontecia antes; em 820 px fica certa)
+- [x] A barra de EXP saía do painel em 900 px: a ALTURA dela passava pela conversão de coordenada (somava o deslocamento vertical da tela). Agora é escalada como tamanho; `teste_perfil.py` confere 820 e 900 px
+- [x] Level Chaser vai de 0 a **999** (o máximo do jogo): a janela recusa acima disso e o app trata valores maiores como 999
+- [x] A barra mostra o **% até o próximo distintivo** (1-99, 100-199...): nível 5 = 5% (faltam 95 para o 100), 385 = 85%. A partir do 900 (o último distintivo) aparece "Distintivo máximo alcançado" e a barra sobe de 0% (900) a 100% (999, "100% · MÁX"). O % fica **dentro** da barra, em branco com contorno escuro; embaixo, "Próximo distintivo: Lv. 400 · faltam 15"
 
 ### 14. Funcionar offline ✅
 - [x] **Cópia local** (`src/cache_local.py`): cada carga e cada salvamento gravam a conta em `%LOCALAPPDATA%\Caminho da Maestria\offline\<user_id>.json` (o que está na tela + o que está no banco + perfil + "pendente"). Antes de enviar, o app já guarda no PC: se a internet cair ou o app fechar no meio, nada se perde

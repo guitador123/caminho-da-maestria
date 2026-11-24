@@ -62,7 +62,7 @@ def main(argv):
 
     # o valor original (para restaurar no final)
     original = app.nivel_chaser
-    valor_teste = 4242 if tem_coluna else original
+    valor_teste = 424 if tem_coluna else original
 
     # --- grava -----------------------------------------------------------
     print(f"\n2) gravando o nivel {valor_teste}:")

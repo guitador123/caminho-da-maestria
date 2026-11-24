@@ -7,7 +7,7 @@ Sem nada de Tk: dá para testar sem abrir janela.
 
 import os
 import re
-from config_app import ROTULOS_COLUNAS
+from config_app import NIVEL_CHASER_MAXIMO, ROTULOS_COLUNAS
 from opcoes import coluna_banco
 from supabase_db import COLUNAS
 
@@ -124,3 +124,25 @@ def _coluna_no_df(df, chave):
         if coluna_banco(coluna) == alvo:
             return coluna
     return None
+
+
+DISTINTIVO_MAXIMO = 900       # o ultimo distintivo (cl900.png)
+
+
+def progresso_exp(nivel):
+    """A barra de EXP do perfil: (percentual, proximo distintivo).
+
+    Os distintivos mudam a cada 100 niveis (1-99, 100-199, 200-299...): o
+    percentual e quanto ja andou ate o proximo. Nivel 5 -> 5% (faltam 95
+    para o 100); 150 -> 50%. O ultimo distintivo e o do 900: dali em diante
+    nao ha proximo (None) e a barra vai de 0% (900) a 100% (999, o maximo).
+    """
+    try:
+        n = int(float(nivel or 0))
+    except (TypeError, ValueError):
+        n = 0
+    n = min(NIVEL_CHASER_MAXIMO, max(0, n))
+    if n >= DISTINTIVO_MAXIMO:
+        faixa = NIVEL_CHASER_MAXIMO - DISTINTIVO_MAXIMO
+        return (n - DISTINTIVO_MAXIMO) * 100.0 / faixa, None
+    return float(n % 100), (n // 100 + 1) * 100
