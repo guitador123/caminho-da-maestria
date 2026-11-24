@@ -185,15 +185,43 @@ class FiltrosMixin:
         dungeon (ex.: Caminho Abissal) nao tirava o card do filtro "nao
         fez" ate mexer em algum filtro. Mantem a rolagem onde estava.
         """
-        try:
-            yview = self.canvas.yview()
-        except tk.TclError:
+        topo = self._topo_da_rolagem()
+        if topo is None:
             return                    # janela ja fechada
-        self._reposicionar_cards()
+        self._reposicionar_cards(manter_topo=topo)
+        self._restaurar_rolagem(topo)
+
+    # --------------------------------------------------------- rolagem ----
+    def _topo_da_rolagem(self):
+        """Onde a tela esta, em PIXELS da pagina (None se ja fechou).
+
+        Em pixels, e nao em fracao (yview): quando o filtro esconde cards
+        a pagina encolhe, e a mesma fracao caia muito mais acima (a tela
+        "pulava")."""
         try:
-            self.canvas.yview_moveto(yview[0])
+            return self.canvas.canvasy(0)
+        except tk.TclError:
+            return None
+        except Exception:
+            falha("ler a rolagem")
+            return None
+
+    def _restaurar_rolagem(self, topo):
+        """Volta para o mesmo pixel e segura o cenario de fundo no lugar
+        (sem isso a arte ficava deslocada depois do filtro)."""
+        rolagem = getattr(self, "_rolagem", None)
+        if rolagem is not None:
+            rolagem.parar()           # uma animacao da roda nao continua
+        try:
+            total = float(str(self.canvas.cget("scrollregion")).split()[3])
+            visivel = self.canvas.winfo_height()
+            topo = max(0.0, min(topo, total - visivel))
+            self.canvas.yview_moveto(topo / total if total > 0 else 0.0)
         except tk.TclError:
             pass                      # janela ja fechada
+        except Exception:
+            falha("restaurar a rolagem")
+        self._fixar_cenario()
 
     def _aplicar_filtros(self):
         """Aplica os filtros.
@@ -202,24 +230,49 @@ class FiltrosMixin:
         apenas MOVIDOS ou ESCONDIDOS, e a barra de filtros e redesenhada
         (para aparecer o CHECK da opcao ativa).
         """
-        try:
-            yview = self.canvas.yview()
-        except tk.TclError:
-            yview = (0.0, 1.0)
-        except Exception:
-            falha("ler a rolagem")
-            yview = (0.0, 1.0)
-        self._reposicionar_cards()
+        topo = self._topo_da_rolagem()
+        if topo is None:
+            topo = 0.0
+        self._reposicionar_cards(manter_topo=topo)
         self._redesenhar_filtros()
+        topo = self._topo_sem_vazio(topo)
+        self._ajustar_altura(topo)
+        self._restaurar_rolagem(topo)
+
+    def _ajustar_altura(self, topo):
+        """A pagina vai ate o ultimo card, ou ate o fim da tela (o que for
+        maior): sem sobra de espaco vazio para rolar."""
+        fim = getattr(self, "_fim_dos_cards", None)
+        if fim is None:
+            return
         try:
-            self.canvas.yview_moveto(yview[0])
+            x1, y1, x2, _y2 = (float(v) for v in
+                               str(self.canvas.cget("scrollregion")).split())
+            total = max(fim + self.lay.h(40),
+                        topo + self.canvas.winfo_height())
+            self.canvas.configure(scrollregion=(x1, y1, x2, total))
         except tk.TclError:
             pass                      # janela ja fechada
         except Exception:
-            falha("restaurar a rolagem")
+            falha("ajustar a altura da pagina")
 
-    def _reposicionar_cards(self):
-        """Mostra/esconde e move os cards conforme o filtro (rapido)."""
+    def _topo_sem_vazio(self, topo):
+        """Rolado la embaixo, com o filtro deixando poucos cards, a tela
+        mostraria so espaco vazio: sobe o NECESSARIO para o ultimo card
+        encostar no rodape (nunca acima da barra de filtros)."""
+        fim = getattr(self, "_fim_dos_cards", None)
+        if fim is None:
+            return topo
+        barra = self.lay.y(tv.FILTROS_BUSCA[1]) - self.lay.h(30)
+        alvo = max(barra, fim + self.lay.h(40) - self.canvas.winfo_height())
+        return min(topo, alvo)
+
+    def _reposicionar_cards(self, manter_topo=None):
+        """Mostra/esconde e move os cards conforme o filtro (rapido).
+
+        `manter_topo` (pixels): a pagina fica alta o bastante para a tela
+        continuar exatamente ali (com poucos cards ela ficava menor que a
+        janela e o Tk jogava tudo para o topo)."""
         geral = self.dfs.get(ABA_GERAL)
         if geral is None or geral.empty:
             return
@@ -264,6 +317,9 @@ class FiltrosMixin:
         # o scrollregion agora e menor (so os cards visiveis)
         try:
             total = y + lay.h(40)
+            self._fim_dos_cards = y          # onde termina o ultimo card
+            if manter_topo is not None:
+                total = max(total, manter_topo + self.canvas.winfo_height())
             self.canvas.configure(scrollregion=(0, 0, max(largura_janela,
                                                           largura_total + 2 * margem),
                                                 total))

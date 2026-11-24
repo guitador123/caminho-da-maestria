@@ -37,6 +37,8 @@ SCRIPTS = [
     "teste_missao_rapida.py",
     "teste_filtros.py",
     "teste_filtro_ao_vivo.py",
+    "teste_filtro_rolagem.py",
+    "teste_rolagem_suave.py",
     "teste_perfil.py",
     "teste_doacao.py",
     "teste_login_memo.py",

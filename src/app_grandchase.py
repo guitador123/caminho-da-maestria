@@ -38,6 +38,7 @@ from app_cartoes import CartoesMixin          # cartoes de estatistica
 from app_atualizacao import AtualizacaoMixin  # botao da versao (atualizar)
 from app_evolucao import EvolucaoMixin        # pagina "Evolucao semanal"
 from app_offline import OfflineMixin          # copia local e sincronia
+from rolagem import RolagemSuave              # roda do mouse suave
 
 # constantes e helpers (reexportados: outros modulos e os testes importam
 # daqui, ex.: `from app_grandchase import FILTRO_VOID, _num`)
@@ -163,10 +164,13 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
 
         self.after(120, self._redesenhar)
         self.bind("<Configure>", self._ao_redimensionar)
-        # rolagem da pagina (cards abaixo do "Caminho da Maestria")
+        # rolagem da pagina (cards abaixo do "Caminho da Maestria"):
+        # suave e proporcional a tela (rolagem.py); passo de 1 px para a
+        # animacao nao andar aos trancos
+        self.canvas.configure(yscrollincrement=1)
+        self._rolagem = RolagemSuave(self.canvas, ao_mover=self._fixar_cenario)
         self.canvas.bind("<MouseWheel>", self._rolar)
         self.bind("<KeyPress>", self._atalho_missao)
-        self.canvas.configure(yscrollincrement=40)
 
         # Carrega dados automaticamente
         if self.usar_supabase:
@@ -260,10 +264,8 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
 
     # ------------------------------------------------------------ rolagem --
     def _rolar(self, evento):
-        """Rola a pagina; o cenario (arte) continua fixo."""
-        passos = -1 if evento.delta > 0 else 1
-        self.canvas.yview_scroll(passos, "units")
-        self._fixar_cenario()
+        """Rola a pagina (suave); o cenario (arte) continua fixo."""
+        self._rolagem.roda(evento.delta)
 
     def _fixar_cenario(self):
         """Mantem a arte de fundo parada enquanto o conteudo rola."""

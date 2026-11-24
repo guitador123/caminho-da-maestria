@@ -167,6 +167,11 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 - [x] **Bug:** o card mostra o Ataque Total com ponto de milhar ("618.002"), mas o campo de edição lia "618.002" como 618. Agora aceita o ponto de milhar
 - [x] A lógica foi para `src/filtros.py` (funções puras) com 20 testes em `tests/test_filtros.py`, incluindo a Torre das Ilusões, que tem o mesmo nome nas duas abas (Geral = andar do mês; Semanais = fez esta semana; o filtro usa a da semana)
 - [x] `tests/integracao/teste_filtro_ao_vivo.py` reproduz os dois casos na tela (falha no código antigo, passa no novo)
+- [x] **Bug:** clicar no filtro (Caminho Abissal, Torre...) fazia a tela saltar para cima e deixava a arte de fundo deslocada. Causas: a rolagem era guardada como FRAÇÃO da página (que encolhe quando o filtro esconde cards), a página podia ficar menor que a janela, e o cenário "fixo" não era reposicionado. Agora a rolagem é guardada em pixels, a tela fica parada (só sobe o necessário quando sobraria espaço vazio, nunca acima da barra de filtros) e o fundo acompanha. `tests/integracao/teste_filtro_rolagem.py` reproduz (no código antigo: 840 → 200 px e 1560 → 360 px, com o fundo fora do lugar)
+
+### Rolagem da página ✅
+- [x] Antes, cada clique da roda andava **40 px secos** (147 a 230 cliques até o último card). Agora (`src/rolagem.py`): o passo é ~1/5 da altura da tela (igual em qualquer resolução), a tela **desliza** até o destino (~250 ms, animação por tempo, não por quadro) e cliques rápidos **aceleram** até 3×. Até o fim: 26–60 cliques devagar, 11–23 girando rápido. A janela da Evolução usa a mesma rolagem
+- [x] Testes: `tests/test_rolagem.py` (desaceleração, aceleração, limites) e `tests/integracao/teste_rolagem_suave.py` (4 resoluções, fundo parado em todos os quadros)
 
 ### Pix (`monta_payload`) ✅
 - [x] O payload gerado pelo código não era um Pix válido: tinha um campo `01` = `26` inexistente e faltava o `0014` (GUI) dentro do campo 26. Agora segue o manual do BR Code e reproduz **caractere por caractere** o exemplo oficial do Banco Central (teste em `tests/test_helpers.py`); a chave vai normalizada e o `gerar_qr.py` confere estrutura e CRC antes de gravar

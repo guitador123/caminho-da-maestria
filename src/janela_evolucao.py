@@ -20,6 +20,7 @@ import caminhos
 import pagina_evolucao
 from area_transferencia import copiar_imagem
 from registro import falha
+from rolagem import RolagemSuave
 from versao_app import VERSAO
 
 CORES = {
@@ -99,7 +100,10 @@ class JanelaEvolucao(ctk.CTkToplevel):
         self.canvas.configure(scrollregion=(0, 0, self.imagem.width,
                                             self.imagem.height))
         self.canvas.bind("<Configure>", self._centralizar)
-        # so nesta janela (a Toplevel recebe a roda dos filhos dela)
+        # so nesta janela (a Toplevel recebe a roda dos filhos dela);
+        # rolagem suave, como a da tela principal
+        self.canvas.configure(yscrollincrement=1)
+        self._rolagem = RolagemSuave(self.canvas)
         self.bind("<MouseWheel>", self._rolar)
 
     def _centralizar(self, evento):
@@ -110,7 +114,7 @@ class JanelaEvolucao(ctk.CTkToplevel):
 
     def _rolar(self, evento):
         try:
-            self.canvas.yview_scroll(int(-evento.delta / 120) * 3, "units")
+            self._rolagem.roda(evento.delta)
         except TclError:
             pass                      # janela ja fechada
 
