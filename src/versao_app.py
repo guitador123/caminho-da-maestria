@@ -14,4 +14,4 @@ Por baixo, o auto-update continua comparando o COMMIT (o nome da release
 no GitHub e v<data>-<commit>); este numero vai no TITULO da release.
 """
 
-VERSAO = "1.1.0"
+VERSAO = "1.1.1"
