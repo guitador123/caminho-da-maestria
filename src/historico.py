@@ -6,6 +6,7 @@ Historico semanal da conta (logica pura, sem Tk): base da pagina
 Uma SEMANA e uma foto de todos os personagens:
 
     {"data": date(2026, 11, 25) ou None,   # None = semana atual (parcial)
+     "nivel_chaser": 412 ou None,          # o Level Chaser da conta
      "personagens": {"Elesis": {"poder": 618002,
                                 "pecas": {"elmo", "arma", ...},
                                 "desafios": {"void4", ...}}, ...}}
@@ -64,7 +65,12 @@ def de_historico(linhas):
         nome = str(linha.get("character_name") or "")
         if not nome:
             continue
-        semana = por_data.setdefault(data, {"data": data, "personagens": {}})
+        semana = por_data.setdefault(
+            data, {"data": data, "nivel_chaser": None, "personagens": {}})
+        # um valor por conta (repetido em todas as linhas da semana)
+        nivel = linha.get("nivel_chaser")
+        if nivel is not None and semana["nivel_chaser"] is None:
+            semana["nivel_chaser"] = int(_num(nivel))
         semana["personagens"][nome] = {
             "poder": _num(linha.get("poder")),
             "pecas": _marcadas(linha.get("pecas_void"), _CHAVES_PECAS,
@@ -82,8 +88,9 @@ def _linhas_por_nome(df):
             for linha in df.to_dict("records")}
 
 
-def da_tela(df_geral, df_pecas, df_semanais):
-    """A semana ATUAL (parcial), a partir das abas carregadas no app."""
+def da_tela(df_geral, df_pecas, df_semanais, nivel_chaser=None):
+    """A semana ATUAL (parcial), a partir das abas carregadas no app (e o
+    Level Chaser da conta)."""
     geral = _linhas_por_nome(df_geral)
     pecas = _linhas_por_nome(df_pecas)
     semanais = _linhas_por_nome(df_semanais)
@@ -97,7 +104,8 @@ def da_tela(df_geral, df_pecas, df_semanais):
             "desafios": _marcadas(semanais.get(nome), _CHAVES_DESAFIOS,
                                   chave_semanal),
         }
-    return {"data": None, "personagens": personagens}
+    return {"data": None, "nivel_chaser": nivel_chaser,
+            "personagens": personagens}
 
 
 # ----------------------------------------------------------------- numeros

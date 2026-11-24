@@ -37,6 +37,7 @@ LILAS = (196, 181, 253)
 VERDE = (52, 211, 153)
 VERMELHO = (251, 113, 133)
 AMARELO = (245, 196, 81)
+LARANJA = (251, 146, 60)          # o Level Chaser
 GRADE = (61, 52, 96)
 
 _ARQUIVOS_FONTE = {
@@ -323,7 +324,9 @@ def montar(semanas, atual, destaque=None, nick="", versao=""):
     y = _cabecalho(img, titulo, nick) + 6
     largura_util = LARGURA - 2 * MARGEM
 
-    # --- 3 numeros de destaque -----------------------------------------
+    # --- 4 numeros de destaque -----------------------------------------
+    nivel = semana.get("nivel_chaser")
+    nivel_ant = anterior.get("nivel_chaser") if anterior else None
     medio = h.ataque_medio(semana)
     medio_ant = h.ataque_medio(anterior) if anterior else None
     pecas = h.contagem_pecas(semana)
@@ -336,9 +339,11 @@ def montar(semanas, atual, destaque=None, nick="", versao=""):
     tiles = [
         ("Ataque Total médio", numero(medio), "",
          h.variacao(medio, medio_ant)),
+        ("Level Chaser", numero(nivel), "nível da conta",
+         h.variacao(nivel, nivel_ant)),
         ("Peças do Void", f"{total_pecas}/{max_pecas}",
-         f"Equipamentos {pecas['equipamentos']}/{pecas['max_equipamentos']}"
-         f"  ·  Acessórios {pecas['acessorios']}/{pecas['max_acessorios']}",
+         f"Equip. {pecas['equipamentos']}/{pecas['max_equipamentos']}"
+         f"  ·  Acess. {pecas['acessorios']}/{pecas['max_acessorios']}",
          h.variacao(total_pecas, (pecas_ant["equipamentos"]
                                   + pecas_ant["acessorios"])
                     if pecas_ant else None)),
@@ -347,7 +352,7 @@ def montar(semanas, atual, destaque=None, nick="", versao=""):
          h.variacao(desafios["total"],
                     desafios_ant["total"] if desafios_ant else None)),
     ]
-    largura_tile = (largura_util - 2 * VAO) / 3
+    largura_tile = (largura_util - (len(tiles) - 1) * VAO) / len(tiles)
     altura_tile = 132
     for i, (rotulo, valor, sub, (dif, pct)) in enumerate(tiles):
         x = MARGEM + i * (largura_tile + VAO)
@@ -359,9 +364,9 @@ def montar(semanas, atual, destaque=None, nick="", versao=""):
             _texto(d, (x + 22, y + 88), sub, 12, APAGADO)
         texto_dif = diferenca_texto(dif, pct if i == 0 else None)
         if texto_dif:
-            texto_dif += " vs semana anterior"
+            texto_dif += " vs anterior"
         elif anterior is None and semana["data"] is None:
-            texto_dif = "o histórico começa no próximo reset (quarta, 3h)"
+            texto_dif = "começa no próximo reset"
         elif anterior is None:
             texto_dif = "primeira semana registrada"
         _texto(d, (x + 22, y + 106), texto_dif, 12, _cor_da_diferenca(dif),
@@ -378,6 +383,17 @@ def montar(semanas, atual, destaque=None, nick="", versao=""):
     _grafico_linha(d, (MARGEM + 24, y + 70, LARGURA - MARGEM - 30,
                        y + altura_painel - 50),
                    rotulos, [h.ataque_medio(s) for s in todas], ROXO, parcial)
+    y += altura_painel + VAO
+
+    # --- level chaser por semana -------------------------------------------
+    altura_painel = 250
+    img = _painel(img, (MARGEM, y, LARGURA - MARGEM, y + altura_painel))
+    d = ImageDraw.Draw(img)
+    _titulo_secao(d, MARGEM + 24, y + 22, "Level Chaser da conta")
+    _grafico_linha(d, (MARGEM + 24, y + 70, LARGURA - MARGEM - 30,
+                       y + altura_painel - 50),
+                   rotulos, [s.get("nivel_chaser") for s in todas], LARANJA,
+                   parcial)
     y += altura_painel + VAO
 
     # --- pecas e desafios por semana (lado a lado) -----------------------

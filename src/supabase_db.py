@@ -780,10 +780,22 @@ def carregar_historico(supabase: Client):
     Devolve (linhas, disponivel): disponivel=False quando a tabela ainda
     nao existe no banco (o app segue so com a semana atual).
     """
-    try:
-        resp = (supabase.table("user_historico_semanal")
-                .select("character_name,semana,poder,pecas_void,desafios")
+    colunas = "character_name,semana,poder,pecas_void,desafios"
+
+    def buscar(selecao):
+        return (supabase.table("user_historico_semanal").select(selecao)
                 .order("semana").execute())
+
+    try:
+        try:
+            resp = buscar(colunas + ",nivel_chaser")
+        except Exception as erro:
+            # o SQL do Level Chaser ainda nao foi rodado: segue sem ele
+            # (a mensagem cita a tabela, por isso o teste da COLUNA vem antes)
+            if not ("nivel_chaser" in str(erro).lower()
+                    and coluna_ausente(erro)):
+                raise
+            resp = buscar(colunas)
         return list(getattr(resp, "data", None) or []), True
     except Exception as erro:
         if _tabela_ausente(erro):

@@ -9,7 +9,7 @@ import pytest
 import historico as h
 
 
-def _linha(nome, semana, poder, pecas=(), desafios=()):
+def _linha(nome, semana, poder, pecas=(), desafios=(), nivel=None):
     """Uma linha como o banco devolve (chaves cruas do banco)."""
     todas_pecas = ["arma", "luvas", "cota", "botas", "capa", "calca", "elmo",
                    "escudos", "asas", "facas", "mascara", "diadema"]
@@ -17,19 +17,20 @@ def _linha(nome, semana, poder, pecas=(), desafios=()):
              "torre_das_ilusoes_semanal", "void_123", "void_4",
              "caminho_abissal", "terra_do_julgamento"]
     return {"character_name": nome, "semana": semana, "poder": poder,
-            "pecas_void": {p: p in pecas for p in todas_pecas},
+            "nivel_chaser": nivel, "pecas_void": {p: p in pecas for p in todas_pecas},
             "desafios": {d: d in desafios for d in todos}}
 
 
 HISTORICO = [
     _linha("Elesis", "2026-11-25", 500_000, pecas=["elmo", "arma"],
-           desafios=["void_4", "torre_das_ilusoes_semanal"]),
+           desafios=["void_4", "torre_das_ilusoes_semanal"], nivel=400),
     _linha("Lire", "2026-11-25", 300_000, pecas=["diadema"],
-           desafios=["caminho_abissal"]),
+           desafios=["caminho_abissal"], nivel=400),
     _linha("Elesis", "2026-12-02", 550_000,
            pecas=["elmo", "arma", "cota", "asas"],
-           desafios=["void_4", "void_123", "caminho_abissal"]),
-    _linha("Lire", "2026-12-02", 310_000, pecas=["diadema", "mascara"]),
+           desafios=["void_4", "void_123", "caminho_abissal"], nivel="412"),
+    _linha("Lire", "2026-12-02", 310_000, pecas=["diadema", "mascara"],
+           nivel="412"),
 ]
 
 
@@ -42,6 +43,14 @@ def test_de_historico_agrupa_por_semana_em_ordem():
     assert elesis["pecas"] == {"elmo", "arma"}
     # a torre semanal do banco vira a chave do app
     assert elesis["desafios"] == {"void4", "torredasilusoes"}
+
+
+def test_level_chaser_da_conta_por_semana():
+    semanas = h.de_historico(HISTORICO)
+    assert [s["nivel_chaser"] for s in semanas] == [400, 412]
+    # semana gravada antes do SQL do Level Chaser: sem o numero
+    antiga = h.de_historico([_linha("Elesis", "2026-11-18", 1)])
+    assert antiga[0]["nivel_chaser"] is None
 
 
 def test_ataque_medio_da_conta():
@@ -86,9 +95,10 @@ def test_semana_atual_a_partir_das_abas_da_tela():
                               "Torre Das Ilusões": "Verdadeiro",
                               "Void ( 1, 2 e 3 )": "Verdadeiro",
                               "Void 4": "Falso"}])
-    semana = h.da_tela(geral, pecas, semanais)
+    semana = h.da_tela(geral, pecas, semanais, nivel_chaser=415)
     elesis = semana["personagens"]["Elesis"]
     assert semana["data"] is None
+    assert semana["nivel_chaser"] == 415
     assert elesis["poder"] == 618002
     assert elesis["pecas"] == {"elmo", "calca", "escudos"}
     assert elesis["desafios"] == {"torredasilusoes", "void123"}

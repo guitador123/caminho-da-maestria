@@ -29,6 +29,7 @@ from credenciais_teste import conta_teste
 
 LINHAS = [
     {"character_name": nome, "semana": semana, "poder": poder,
+     "nivel_chaser": poder // 300,
      "pecas_void": {"elmo": True, "diadema": semana == "2026-11-25"},
      "desafios": {"void_4": True, "caminho_abissal": semana == "2026-11-25"}}
     for semana, poder in (("2026-11-18", 100_000), ("2026-11-25", 120_000))

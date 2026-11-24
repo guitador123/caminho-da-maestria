@@ -5,6 +5,7 @@
 --  Agora, ANTES de zerar as dungeons, ela tira uma "foto" de cada
 --  personagem de cada conta e guarda em user_historico_semanal:
 --    - Ataque Total (poder)
+--    - o Level Chaser da conta (nivel_chaser)
 --    - as 12 pecas do Void (equipamentos e acessorios)
 --    - os 7 desafios semanais feitos na semana que acabou
 --
@@ -29,6 +30,8 @@ create table if not exists public.user_historico_semanal (
   -- a data (Brasilia) do reset que FECHOU a semana (uma quarta-feira)
   semana date not null,
   poder bigint,
+  -- o Level Chaser da conta (o mesmo em todas as linhas da semana)
+  nivel_chaser bigint,
   pecas_void jsonb not null default '{}'::jsonb,
   desafios jsonb not null default '{}'::jsonb,
   criado_em timestamp with time zone default now() not null,
@@ -40,6 +43,10 @@ create table if not exists public.user_historico_semanal (
   constraint user_historico_semanal_character_id_fkey foreign key
     (character_id) references public.user_characters(id) on delete set null
 );
+-- quem rodou a versao anterior deste SQL ganha a coluna aqui
+alter table public.user_historico_semanal
+  add column if not exists nivel_chaser bigint;
+
 create index if not exists user_historico_semanal_user_semana
   on public.user_historico_semanal (user_id, semana);
 
@@ -67,9 +74,10 @@ declare
   total integer;
 begin
   insert into public.user_historico_semanal
-    (user_id, character_id, character_name, semana, poder, pecas_void,
-     desafios)
+    (user_id, character_id, character_name, semana, poder, nivel_chaser,
+     pecas_void, desafios)
   select uc.user_id, uc.id, uc.character_name, p_semana, uc.poder,
+         uc.nivel_chaser,
          coalesce((select to_jsonb(pv) - 'id' - 'character_id' - 'updated_at'
                      from public.user_pecas_void pv
                     where pv.character_id = uc.id
@@ -82,6 +90,7 @@ begin
   on conflict (user_id, character_name, semana) do update
     set character_id = excluded.character_id,
         poder = excluded.poder,
+        nivel_chaser = excluded.nivel_chaser,
         pecas_void = excluded.pecas_void,
         desafios = excluded.desafios,
         criado_em = now();
