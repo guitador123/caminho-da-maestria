@@ -36,6 +36,7 @@ from app_salvamento import SalvamentoMixin    # Supabase, nivel, preferencias
 from app_missao import MissaoMixin            # missao rapida, zerar dungeons
 from app_cartoes import CartoesMixin          # cartoes de estatistica
 from app_atualizacao import AtualizacaoMixin  # botao da versao (atualizar)
+from app_evolucao import EvolucaoMixin        # pagina "Evolucao semanal"
 
 # constantes e helpers (reexportados: outros modulos e os testes importam
 # daqui, ex.: `from app_grandchase import FILTRO_VOID, _num`)
@@ -80,7 +81,8 @@ _registrar = registrar
 
 
 class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
-                    MissaoMixin, CartoesMixin, AtualizacaoMixin, ctk.CTk):
+                    MissaoMixin, CartoesMixin, AtualizacaoMixin,
+                    EvolucaoMixin, ctk.CTk):
     def __init__(self, user=None, supabase=None):
         super().__init__()
         # lido na criacao (os testes ligam app_grandchase.MOSTRAR_TABELA antes)
@@ -165,6 +167,8 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         # Carrega dados automaticamente
         if self.usar_supabase:
             self.carregar_do_supabase()
+            # 1o login depois do reset de quarta: abre a evolucao sozinha
+            self.after(1500, self._verificar_resumo_semanal)
         elif self.excel_path:
             self.load_excel(self.excel_path)
         else:
@@ -965,6 +969,19 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
                                        12, cor=tv.CORES["suave"], anchor="w")
         self.itens_valores[chave] = (item_valor, item_legenda,
                                      x1 + lay.w(20), y_legenda)
+        if chave == "evolucao":
+            # o cartao inteiro abre a pagina de evolucao
+            hit = self.canvas.create_image(
+                x1, y1, anchor="nw", image=self._foto(tv.retangulo_alfa(
+                    cor=(139, 92, 246), alfa=1,
+                    tamanho=(max(1, int(x2 - x1)), max(1, int(y2 - y1))))))
+            self.canvas.tag_bind(hit, "<Button-1>",
+                                 lambda e: self.abrir_evolucao())
+            self.canvas.tag_bind(hit, "<Enter>",
+                                 lambda e: self.canvas.configure(cursor="hand2"))
+            self.canvas.tag_bind(hit, "<Leave>",
+                                 lambda e: self.canvas.configure(cursor=""))
+            self._atualizar_cartao_evolucao()
 
     def _posicionar_legenda(self, chave, valor):
         """Coloca a legenda ao lado do valor (a largura do valor varia)."""

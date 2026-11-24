@@ -29,6 +29,10 @@
 > **Versão (item 11):** o número que o usuário vê fica em `src/versao_app.py`
 > (suba antes de cada release); o botão "Versão X.Y.Z" (`app_atualizacao.py`)
 > procura atualização na hora. O auto-update continua comparando o commit.
+> **Evolução semanal (item 13):** `zerar_semanais()` chama `registrar_semana()`
+> antes de zerar (foto em `user_historico_semanal`); `historico.py` (cálculos),
+> `pagina_evolucao.py` (a página como imagem PIL), `janela_evolucao.py`
+> (mostrar/copiar/salvar) e `app_evolucao.py` (9º cartão + abrir sozinha).
 
 ## 1. Objetivo Final
 Aplicativo desktop moderno (CustomTkinter) para controle de Grand Chase de uma guilda (~40 pessoas), com:

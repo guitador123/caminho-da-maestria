@@ -188,6 +188,14 @@ def main():
         print("  MODO TESTE: nada foi alterado.")
         return 0
 
+    # --- a foto da semana (pagina "Evolucao") ANTES de zerar ----------
+    # (sql/historico_semanal.sql; se a funcao nao existir, segue sem ela)
+    try:
+        fotos = sb.rpc("registrar_semana", {}).execute().data
+        registrar(f"historico semanal: {fotos} personagem(ns) registrados")
+    except Exception as erro:
+        registrar(f"AVISO: historico semanal nao registrado ({erro})")
+
     # --- zera ------------------------------------------------------------
     zeradas = 0
     for coluna in colunas:

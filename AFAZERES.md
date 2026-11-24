@@ -136,9 +136,17 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 - [ ] Ranking ou painel com o progresso semanal de todos (leitura entre membros via RLS)
 - [ ] Destaque de quem ainda não fez as dungeons da semana
 
-### 13. Histórico de evolução
-- [ ] Guardar o poder e o ataque total por semana
-- [ ] Gráfico de evolução por personagem
+### 13. Histórico de evolução ✅
+- [x] **Banco** (`sql/historico_semanal.sql`): o reset de quarta 03h tira uma "foto" de cada personagem ANTES de zerar (Ataque Total, as 12 peças do Void e os 7 desafios da semana) em `user_historico_semanal`. Só o dono lê (RLS); só a função do reset grava. Se a foto falhar, o reset continua
+- [x] `sql/historico_semanal.sql` aplicado (23/11): tabela com RLS (só o dono lê; usuário e anon não gravam nem chamam `registrar_semana`/`zerar_semanais`), coluna `resumo_visto` criada. A 1ª foto sai no reset de quarta, 25/11, 3h
+- [x] **Página "Evolução semanal"**: Ataque Total médio da conta por semana (linha), por personagem (ranking com mini-linha e variação), peças do Void separadas em equipamentos (Elmo, Cota, Calça, Luva, Bota, Capa, Arma) e acessórios (Diadema, Máscara, Asas, Facas, Escudo), desafios semanais feitos (total, por semana e por desafio). Números e gráficos, no visual do app
+- [x] Acesso pelo 9º cartão da grade ("EVOLUÇÃO SEMANAL", mostra a variação do ataque médio); abre **sozinha no 1º login após o reset** destacando a semana que acabou (uma vez por conta: `user_profiles.resumo_visto`)
+- [x] Exportar: "Copiar imagem" (Ctrl+V no Discord) e "Salvar PNG": a página inteira é uma imagem, o que se vê é o que se compartilha
+- [x] Testes: `tests/test_historico.py` (cálculos, reset de quarta em UTC×Brasília, abre 1 vez) e `tests/integracao/teste_evolucao.py` (cartão, abrir sozinha, copiar, salvar, sem a tabela)
+- [x] No caminho: as legendas "characters complete" (Despertar/Libertação) viraram "personagens concluídos"
+
+### Pendência vista no caminho
+- [ ] A barra de EXP do perfil sai do painel com a janela em 900 px de altura (já acontecia antes; em 820 px fica certa)
 
 ### 14. Funcionar offline
 - [ ] Cache local dos dados quando o Supabase estiver fora

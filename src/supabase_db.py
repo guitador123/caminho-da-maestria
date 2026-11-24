@@ -760,3 +760,44 @@ def exportar_para_excel(dados_por_tabela: dict, caminho="backup_gc.xlsx"):
             df = pd.DataFrame(lista)
             if not df.empty:
                 df.to_excel(writer, sheet_name=nome_tabela, index=False)
+
+
+# ---------------------------------------------------------------------------
+# HISTORICO SEMANAL (pagina "Evolucao"; ver sql/historico_semanal.sql)
+# ---------------------------------------------------------------------------
+def _tabela_ausente(erro) -> bool:
+    """O erro e "essa tabela nao existe" (o SQL ainda nao foi rodado)?"""
+    codigo = str(getattr(erro, "code", "") or "")
+    texto = str(erro).lower()
+    return codigo in ("PGRST205", "42P01") or (
+        "user_historico_semanal" in texto and (
+            "could not find" in texto or "does not exist" in texto))
+
+
+def carregar_historico(supabase: Client):
+    """As fotos semanais da conta logada (o RLS so devolve as suas).
+
+    Devolve (linhas, disponivel): disponivel=False quando a tabela ainda
+    nao existe no banco (o app segue so com a semana atual).
+    """
+    try:
+        resp = (supabase.table("user_historico_semanal")
+                .select("character_name,semana,poder,pecas_void,desafios")
+                .order("semana").execute())
+        return list(getattr(resp, "data", None) or []), True
+    except Exception as erro:
+        if _tabela_ausente(erro):
+            return [], False
+        raise
+
+
+def marcar_resumo_visto(supabase: Client, user_id: str, data) -> bool:
+    """Grava que a conta ja viu o resumo da semana `data` (abre 1 vez)."""
+    try:
+        supabase.table("user_profiles").update(
+            {"resumo_visto": data.isoformat()}).eq("id", user_id).execute()
+        return True
+    except Exception as erro:
+        if not coluna_ausente(erro):
+            falha("marcar o resumo semanal como visto", erro)
+        return False

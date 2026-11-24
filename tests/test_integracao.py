@@ -41,6 +41,7 @@ SCRIPTS = [
     "teste_doacao.py",
     "teste_login_memo.py",
     "teste_versao.py",
+    "teste_evolucao.py",
     # precisa da chave privada REAL da release (so no PC de quem publica)
     "teste_assinatura.py",
 ]
