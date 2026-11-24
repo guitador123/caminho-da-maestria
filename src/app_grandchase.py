@@ -37,6 +37,7 @@ from app_missao import MissaoMixin            # missao rapida, zerar dungeons
 from app_cartoes import CartoesMixin          # cartoes de estatistica
 from app_atualizacao import AtualizacaoMixin  # botao da versao (atualizar)
 from app_evolucao import EvolucaoMixin        # pagina "Evolucao semanal"
+from app_offline import OfflineMixin          # copia local e sincronia
 
 # constantes e helpers (reexportados: outros modulos e os testes importam
 # daqui, ex.: `from app_grandchase import FILTRO_VOID, _num`)
@@ -82,8 +83,8 @@ _registrar = registrar
 
 class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
                     MissaoMixin, CartoesMixin, AtualizacaoMixin,
-                    EvolucaoMixin, ctk.CTk):
-    def __init__(self, user=None, supabase=None):
+                    EvolucaoMixin, OfflineMixin, ctk.CTk):
+    def __init__(self, user=None, supabase=None, offline=False):
         super().__init__()
         # lido na criacao (os testes ligam app_grandchase.MOSTRAR_TABELA antes)
         self.mostrar_tabela = MOSTRAR_TABELA
@@ -149,6 +150,8 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         self._versao = 0          # contador de alteracoes nos dados
         self._versao_salva = -1    # versao que estava sendo enviada
         self.after(80, self._verificar_salvamento)
+        # --- modo offline (copia local + sincronia) ----------------------
+        self._iniciar_offline(offline)
 
         # === Camada 2: canvas (imagem do cenario + textos) ===============
         self.canvas = tk.Canvas(self, bg="#191334", highlightthickness=0, bd=0)
@@ -881,7 +884,13 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
             return
         try:
             from supabase_db import ler_perfil
-            dados = ler_perfil(self.supabase, self.user_id)
+            self._aplicar_perfil(ler_perfil(self.supabase, self.user_id))
+        except Exception as erro:
+            falha("[Perfil] ler", erro)
+
+    def _aplicar_perfil(self, dados):
+        """Nick/avatar (do Supabase ou da copia offline)."""
+        try:
             if not dados:
                 return
             if dados.get("nick"):
@@ -1083,7 +1092,8 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
             falha("atualizar a barra de status")
 
     def _sair(self):
-        if self.modified and not messagebox.askyesno("Sair", "Existem alteracoes nao salvas. Deseja mesmo sair?"):
+        # offline, a alteracao ja fica guardada no PC (vai depois)
+        if self.modified and not self._salvo_neste_pc() and                 not messagebox.askyesno("Sair", "Existem alteracoes nao salvas. Deseja mesmo sair?"):
             return
         self.quit_app()
 

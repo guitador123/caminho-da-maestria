@@ -42,6 +42,7 @@ SCRIPTS = [
     "teste_login_memo.py",
     "teste_versao.py",
     "teste_evolucao.py",
+    "teste_offline.py",
     # precisa da chave privada REAL da release (so no PC de quem publica)
     "teste_assinatura.py",
 ]
@@ -60,6 +61,9 @@ def test_script(script):
     resultado = subprocess.run(
         [sys.executable, os.path.join("tests", "integracao", script)],
         cwd=RAIZ, capture_output=True, text=True, encoding="utf-8",
-        errors="replace", timeout=600)
+        errors="replace", timeout=600,
+        # o filho escreve em UTF-8 (senao o cp1252 do console quebra em
+        # caracteres como o "↗" do 9o cartao)
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     saida = (resultado.stdout + resultado.stderr).strip()
     assert resultado.returncode == 0, saida[-3000:]

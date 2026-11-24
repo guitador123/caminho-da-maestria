@@ -68,8 +68,9 @@ class EvolucaoMixin:
     # ----------------------------------------------------------- abrir ----
     def abrir_evolucao(self, destaque=None):
         """Abre a pagina (busca o historico em segundo plano)."""
-        if not self.usar_supabase:
-            self._mostrar_evolucao([], destaque)
+        if not self.usar_supabase or getattr(self, "offline", False):
+            self._mostrar_evolucao(getattr(self, "_semanas_historico", None)
+                                   or [], destaque)
             return
         self.status("Carregando a evolução semanal...")
 
@@ -110,7 +111,8 @@ class EvolucaoMixin:
     def _verificar_resumo_semanal(self):
         """Depois de carregar a conta: abre a pagina sozinha se houve um
         reset que a conta ainda nao viu (e atualiza o 9o cartao)."""
-        if not self.usar_supabase or not self.user_id:
+        if (not self.usar_supabase or not self.user_id
+                or getattr(self, "offline", False)):
             return
 
         def ao_terminar(ok, resultado):

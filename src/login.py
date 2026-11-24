@@ -24,6 +24,7 @@ from tkinter import font as tkfont
 import customtkinter as ctk
 
 import auth
+import cache_local
 import caminhos
 from registro import falha
 import tema_login as tl
@@ -67,6 +68,36 @@ def mensagem_erro(erro) -> str:
         if trecho in bruto.lower():
             return texto
     return bruto[:160]
+
+
+SEM_INTERNET = ("Sem conexão com a internet. Para entrar offline, entre uma "
+                "vez com internet com \"Memorizar conta\" marcado.")
+SENHA_OFFLINE = ("Sem conexão com a internet, e a senha não confere com a "
+                 "última usada neste computador.")
+
+
+def entrar(email, senha):
+    """Login com internet; sem internet, entra com a copia deste PC.
+
+    Devolve (cliente, resposta). Offline, a resposta tem `offline=True` e
+    o cliente ainda nao tem sessao (ela volta com a internet).
+    """
+    try:
+        return auth.login(email, senha)
+    except Exception as erro:
+        if not cache_local.eh_erro_de_rede(erro):
+            raise
+        falha("[Login] sem internet", erro)
+        conta = cache_local.conta_offline(email, senha)
+        if conta is None:
+            raise RuntimeError(SENHA_OFFLINE
+                               if cache_local.conta_memorizada(email)
+                               else SEM_INTERNET) from None
+        from types import SimpleNamespace
+        usuario = SimpleNamespace(id=conta["user_id"], email=conta["email"])
+        return auth.get_supabase(), SimpleNamespace(user=usuario,
+                                                    session=None,
+                                                    offline=True)
 
 
 def _ler_prefs():
@@ -539,7 +570,7 @@ class LoginApp(ctk.CTk):
             return self._aviso("Preencha e-mail e senha.")
         if not EMAIL_RE.match(email):
             return self._aviso("E-mail invalido.")
-        self._executar(lambda: auth.login(email, senha), self._login_ok)
+        self._executar(lambda: entrar(email, senha), self._login_ok)
 
     def _aplicar_icone(self):
         """Icone da janela (o .ico do app, em todas as abas)."""
@@ -550,20 +581,33 @@ class LoginApp(ctk.CTk):
         user = getattr(resp, "user", None)
         if user is None:
             return self._falhou(RuntimeError("Falha ao autenticar."))
+        if getattr(resp, "offline", False):
+            self.resultado["offline"] = True
+            return self._abrir_app(user, sb)
         auth.garantir_perfil(sb, user.id,
                              username=(user.email or "").split("@")[0])
-        self._memorizar_conta()
+        self._memorizar_conta(user, getattr(resp, "session", None))
         self._abrir_app(user, sb)
 
-    def _memorizar_conta(self):
-        """Guarda (ou apaga) a conta memorizada no computador."""
+    def _memorizar_conta(self, user=None, sessao=None):
+        """Guarda (ou apaga) a conta memorizada no computador.
+
+        Memorizada, ela tambem entra sem internet (cache_local): fica um
+        hash da senha e o token da sessao, protegidos pelo Windows.
+        """
         prefs = _ler_prefs()
+        email = self.ent_email.get().strip()
         if self._checks.get("memorizar"):
-            prefs["email"] = self.ent_email.get().strip()
+            prefs["email"] = email
             prefs["lembrar"] = True
+            if user is not None:
+                cache_local.memorizar_conta(
+                    email, user.id, self.ent_senha.get(),
+                    getattr(sessao, "refresh_token", None))
         else:
             prefs.pop("email", None)
             prefs["lembrar"] = False
+            cache_local.esquecer_conta(email)
         _salvar_prefs(prefs)
 
     # -------------------------------------------------------- acoes conta --
@@ -690,7 +734,8 @@ def abrir_aplicativo():
         return  # janela fechada sem login: encerra
 
     from app_grandchase import GrandChaseApp
-    app = GrandChaseApp(user=user, supabase=resultado.get("supabase"))
+    app = GrandChaseApp(user=user, supabase=resultado.get("supabase"),
+                        offline=bool(resultado.get("offline")))
     app.mainloop()
 
 

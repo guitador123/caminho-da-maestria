@@ -148,9 +148,13 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 ### Pendência vista no caminho
 - [ ] A barra de EXP do perfil sai do painel com a janela em 900 px de altura (já acontecia antes; em 820 px fica certa)
 
-### 14. Funcionar offline
-- [ ] Cache local dos dados quando o Supabase estiver fora
-- [ ] Sincronizar quando a conexão voltar
+### 14. Funcionar offline ✅
+- [x] **Cópia local** (`src/cache_local.py`): cada carga e cada salvamento gravam a conta em `%LOCALAPPDATA%\Caminho da Maestria\offline\<user_id>.json` (o que está na tela + o que está no banco + perfil + "pendente"). Antes de enviar, o app já guarda no PC: se a internet cair ou o app fechar no meio, nada se perde
+- [x] **Entrar sem internet**: só a conta com "Memorizar conta" marcado. Fica um hash PBKDF2 da senha (nunca a senha) e o token da sessão, em `contas.bin` protegido pelo Windows (DPAPI). Desmarcar apaga a conta do arquivo
+- [x] **Usar offline**: salvar vira pendência no PC (sair não pergunta "alterações não salvas"); a Evolução mostra só a semana atual
+- [x] **Sincronizar quando a conexão voltar**: a cada 20 s tenta reabrir a sessão com o token guardado; se ele expirou, pede a senha uma vez. Vai só o que mudou offline, personagem por personagem (os não mexidos ficam como estão no banco). Uma pendência de uma sessão anterior é enviada antes da carga normal
+- [x] Testes: `tests/test_cache_local.py`, `tests/test_login_offline.py` e `tests/integracao/teste_offline.py` (abrir offline, editar, reconectar, pendência antiga, queda no meio do uso)
+- Limite: nick e foto do perfil só mudam com internet
 
 ---
 

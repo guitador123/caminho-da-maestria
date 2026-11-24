@@ -20,6 +20,7 @@ from config_app import (
 from dados_app import _ordenar_colunas, _rotular_colunas
 from opcoes import coluna_banco
 from registro import falha
+import cache_local
 from supabase_db import (
     carregar_acessorios_titulo,
     carregar_pecas_void,
@@ -33,6 +34,12 @@ from tkinter import messagebox
 class SalvamentoMixin:
     # --------------------------------------------------- carregar Supabase --
     def carregar_do_supabase(self):
+        if getattr(self, "offline", False):
+            self._carregar_da_copia()
+            return
+        self._nota_sincronia = ""
+        if not self._enviar_pendente_da_copia():
+            return
         try:
             self._limpar_abas()
 
@@ -93,10 +100,18 @@ class SalvamentoMixin:
             self._ler_preferencia()
             self._ler_ultimo_personagem()
             self._ler_perfil()
+            # a copia deste PC (para abrir sem internet)
+            self._guardar_copia(pendente=False)
             total = sum(len(d) for d in self.dfs.values())
             self.status(f"Carregado do Supabase: {len(personagens)} personagens "
-                        f"| {total} registros nas abas" + nota_estrutura)
+                        f"| {total} registros nas abas" + nota_estrutura
+                        + self._nota_sincronia)
         except Exception as e:
+            if cache_local.eh_erro_de_rede(e):
+                falha("[Supabase] carregar a conta (sem internet)", e)
+                self.offline = True
+                if self._carregar_da_copia():
+                    return
             falha("[Supabase] carregar a conta", e)
             messagebox.showerror("Erro Supabase", str(e))
             self.status("Erro ao conectar com Supabase")
@@ -198,7 +213,8 @@ class SalvamentoMixin:
         self._desenhar_perfil()
         self._marcar_modificado()
         if self.usar_supabase:
-            self._aviso_nivel = ("" if self._nivel_no_banco() else
+            self._aviso_nivel = ("" if getattr(self, "offline", False)
+                                 or self._nivel_no_banco() else
                                  " | nivel_chaser: rode sql/nivel_chaser.sql "
                                  "no Supabase para gravar")
             self.salvar_supabase()
@@ -227,6 +243,11 @@ class SalvamentoMixin:
         if not self.modified:
             self.status("Nenhuma alteracao para salvar.")
             return
+        if getattr(self, "offline", False):
+            self._guardar_copia(pendente=True)
+            self.status("Sem internet: alteração guardada neste computador. "
+                        "Ela vai para o banco quando a conexão voltar.")
+            return
         if self._salvando:
             self._salvar_pendente = True
             self.status("Salvando… (o proximo salvamento ja esta na fila)")
@@ -239,6 +260,9 @@ class SalvamentoMixin:
         dados = self._snapshot_dados()
         originais = (self._snapshot_dados(self.originals)
                      if self._originais_do_banco else None)
+        # guarda no PC ANTES de enviar: se cair a internet (ou o app
+        # fechar) no meio, nada se perde
+        self._guardar_copia(pendente=True, dados=dados, originais=originais)
 
         # O GC nao pode rodar na thread de rede: ele pode finalizar um
         # tkinter.font.Font e travar o Tcl (GIL x Tcl). Desligamos durante o
@@ -282,8 +306,15 @@ class SalvamentoMixin:
         self._salvando = False
 
         if tipo == "erro":
-            self.status(f"Erro ao salvar no Supabase: {payload}")
             self.modified = True
+            if cache_local.eh_erro_de_rede(payload):
+                # a copia pendente ja foi gravada antes do envio
+                self.offline = True
+                self.status("Sem internet: alteração guardada neste "
+                            "computador. Ela vai para o banco quando a "
+                            "conexão voltar.")
+                return
+            self.status(f"Erro ao salvar no Supabase: {payload}")
             self._salvar_pendente = True
         else:
             salvos = payload.get("salvos") or {}
@@ -293,6 +324,8 @@ class SalvamentoMixin:
                 # nada mudou durante o envio: pode marcar como salvo
                 self.modified = False
                 self.originals = {k: v.copy() for k, v in self.dfs.items()}
+                self._originais_do_banco = True
+                self._guardar_copia(pendente=False)
             else:
                 # houve alteracao durante o envio -> salva de novo
                 self.modified = True
