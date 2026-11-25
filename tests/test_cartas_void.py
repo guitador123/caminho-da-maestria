@@ -84,7 +84,7 @@ def test_gravacao_e_texto_e_nao_mexe_nas_pecas():
 
 # ------------------------------------------------- pedra do Void (16) --
 from dados_app import (NIVEL_PEDRA_MAXIMO, PEDRAS_VOID, coluna_pedra,  # noqa: E402
-                       forca_da_pedra, juntar_pedra, ler_pedra, validar_pedra)
+                       cor_da_pedra, juntar_pedra, ler_pedra, validar_pedra)
 
 
 def test_status_das_pedras_fraco_e_forte():
@@ -95,10 +95,23 @@ def test_status_das_pedras_fraco_e_forte():
                                                           "Ataque +600"]
     assert PEDRAS_VOID["cota"] == PEDRAS_VOID["botas"]
     assert PEDRAS_VOID["arma"] == ["7% Dano Crítico", "10% Dano Crítico"]
-    assert forca_da_pedra("arma", "10% Dano Crítico") == "forte"
-    assert forca_da_pedra("arma", "7% Dano Crítico") == "fraca"
-    assert forca_da_pedra("arma", "Ataque +600") is None   # de outra peca
     assert NIVEL_PEDRA_MAXIMO == 18
+
+
+@pytest.mark.parametrize("nivel, cor", [
+    (18, "vermelho"), (17, "dourado"),
+    (16, "verde"), (11, "verde"),
+    (10, "cinza"), (0, "cinza"),
+    (None, None),                                  # pedra nao informada
+])
+def test_cor_da_pedra_pelo_nivel(nivel, cor):
+    assert cor_da_pedra(nivel) == cor
+
+
+def test_todas_as_cores_tem_desenho_no_card():
+    from card_personagem import CORES_PEDRA
+    cores = {cor_da_pedra(n) for n in range(NIVEL_PEDRA_MAXIMO + 1)}
+    assert cores == set(CORES_PEDRA)
 
 
 @pytest.mark.parametrize("valor, pedra", [
@@ -140,3 +153,38 @@ def test_colunas_da_pedra():
         assert coluna in db.EXTRAS_OPCIONAIS["pecas_void"]
         assert coluna_banco(ROTULOS_COLUNAS[coluna_banco(coluna)]) == \
             coluna_banco(coluna)
+
+
+@pytest.mark.parametrize("peca, status, forte", [
+    ("arma", "10% Dano Crítico", True), ("arma", "7% Dano Crítico", False),
+    ("luvas", "20% Dano no fatal", True), ("calca", "Recuperação de MP 10%", True),
+    ("elmo", "Ataque +600", True), ("capa", "Ataque +300", False),
+    ("cota", "Ataque Especial +800", True), ("botas", "Ataque Especial +400", False),
+    ("arma", "Ataque +600", False),                # status de outra peca
+    ("arma", "", False), ("escudos", "Ataque +600", False),
+])
+def test_status_mais_forte_ganha_o_pontinho(peca, status, forte):
+    from dados_app import status_forte
+    assert status_forte(peca, status) is forte
+
+
+def test_pontinho_aparece_so_no_status_forte():
+    import tkinter as tk
+    from card_personagem import CardPersonagem
+    try:
+        raiz = tk.Tk()
+    except tk.TclError as erro:
+        pytest.skip(f"sem tela para o Tk: {erro}")
+    try:
+        canvas = tk.Canvas(raiz)
+        card = CardPersonagem(canvas, 0, 0, {"nome": "Ai", "pecas": {
+            "pedraarma": "18|10% Dano Crítico",            # forte
+            "pedraluvas": "18|15% Dano no fatal"}})        # fraco
+
+        def ovais(peca):
+            return [i for i in canvas.find_withtag(f"{card.tag}_pedra_{peca}")
+                    if canvas.type(i) == "oval"]
+        assert len(ovais("arma")) == 1
+        assert ovais("luvas") == []
+    finally:
+        raiz.destroy()

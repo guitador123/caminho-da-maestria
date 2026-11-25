@@ -384,9 +384,23 @@ def juntar_pedra(nivel, status):
     return f"{int(str(nivel).strip().lstrip('+'))}|{str(status).strip()}"
 
 
-def forca_da_pedra(peca, status):
-    """'forte' (o status maior), 'fraca' ou None (sem pedra / fora da lista)."""
+def cor_da_pedra(nivel):
+    """A cor do chip pelo NIVEL da pedra (regra do usuario, 24/11):
+    +18 vermelho, +17 dourado, +11 a +16 verde, +0 a +10 cinza; None =
+    pedra nao informada."""
+    if nivel is None:
+        return None
+    if nivel >= 18:
+        return "vermelho"
+    if nivel == 17:
+        return "dourado"
+    if nivel >= 11:
+        return "verde"
+    return "cinza"
+
+
+def status_forte(peca, status):
+    """O status e o MAIS FORTE da pedra da peca? (o ultimo da lista: +600,
+    +800, 10%, 20%...). O card marca com um pontinho no chip."""
     opcoes = PEDRAS_VOID.get(peca, [])
-    if status in opcoes:
-        return "forte" if opcoes.index(status) == len(opcoes) - 1 else "fraca"
-    return None
+    return bool(opcoes) and status == opcoes[-1]

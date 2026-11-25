@@ -19,7 +19,7 @@ from registro import falha
 from dados_app import (abreviar_ataque, formatar_percentual, soma_no_milhar,
                        ler_titulos, ler_cartas, estado_da_carta,
                        coluna_cartas, PECAS_COM_CARTAS, SLOTS_CARTAS,
-                       coluna_pedra, ler_pedra, forca_da_pedra)
+                       coluna_pedra, ler_pedra, cor_da_pedra, status_forte)
 
 # --------------------------------------------------------------------- cores
 CORES = {
@@ -94,6 +94,15 @@ CORES_NOME = {
     "roxo": "#c084fc",
     "vermelho": "#fb7185",
     "cinza": "#9ca3af",
+}
+
+# Cor do chip da pedra do Void pelo nivel (dados_app.cor_da_pedra):
+# (fundo, texto)
+CORES_PEDRA = {
+    "vermelho": ("#e11d48", "#ffffff"),     # +18
+    "dourado": ("#f5c451", "#241a05"),      # +17
+    "verde": ("#16a34a", "#ffffff"),        # +11 a +16
+    "cinza": ("#4b5563", "#e5e7eb"),        # +0 a +10
 }
 
 # Regras de cor dos acessórios (definidas pelo usuario em 14/11).
@@ -1091,15 +1100,16 @@ class CardPersonagem:
         self._desenhar_pedra(peca, x, py, passo, pecas, tag)
 
     def _desenhar_pedra(self, peca, x, py, passo, pecas, tag_linha):
-        """Chip do nivel da pedra antes do nome da peca: dourado = status
-        forte, roxo = fraco, vazado = pedra nao informada. Passar o mouse
-        mostra o status; clicar abre a edicao rapida (como a linha)."""
+        """Chip do nivel da pedra antes do nome da peca, na cor do NIVEL
+        (+18 vermelho, +17 dourado, +11 a +16 verde, +0 a +10 cinza; ver
+        CORES_PEDRA); vazado = pedra nao informada. Passar o mouse mostra
+        o status; clicar abre a edicao rapida (como a linha). Com o status
+        MAIS FORTE da peca, um pontinho branco no canto de cima do chip."""
         nivel, status = ler_pedra(pecas.get(normalizar(coluna_pedra(peca))))
-        forca = forca_da_pedra(peca, status) if nivel is not None else None
-        if forca == "forte":
-            fundo, borda, cor = CORES["dourado"], None, "#241a05"
-        elif nivel is not None:
-            fundo, borda, cor = "#3a3358", None, "#e4defa"
+        cor_nivel = cor_da_pedra(nivel)
+        if cor_nivel:
+            fundo, cor = CORES_PEDRA[cor_nivel]
+            borda = None
         else:
             fundo, borda, cor = CORES["painel"], CORES["fraco"], CORES["fraco"]
         largura, altura = X_NOME_PECA - 32, max(12, passo - 3)
@@ -1114,13 +1124,25 @@ class CardPersonagem:
                          tags=(tag, tag_linha))
         if nivel is None:
             return
+        forte = status_forte(peca, status)
+        if forte:
+            # o selo: pontinho branco com contorno escuro, no canto de cima
+            raio = 3
+            cx, cy = x + 30 + largura - 1, topo + 1
+            self.create_oval(cx - raio, cy - raio, cx + raio, cy + raio,
+                             fill="#ffffff", outline=CORES["fundo"],
+                             width=max(1, round(self.s)),
+                             tags=(tag, tag_linha))
+        linhas = [f"+{nivel}  \u00b7  {status}"]
+        if forte:
+            linhas.append("\u25cf status mais forte")
         nome = dict(PECAS_VOID).get(peca, peca)
         self.canvas.tag_bind(
             tag, "<Enter>",
             lambda e: self._mostrar_balao(
                 x + 30, py + passo + 2, f"PEDRA \u00b7 {nome.upper()}",
-                [f"+{nivel}  \u00b7  {status}"],
-                borda=CORES["dourado"] if forca == "forte" else "#6d5bd0"))
+                linhas,
+                borda=CORES_PEDRA[cor_nivel][0]))
         self.canvas.tag_bind(tag, "<Leave>", lambda e: self._esconder_titulos())
 
     def _valor_acessorio(self, x, y, valor, largura_max, cor=None):

@@ -188,7 +188,7 @@ Ideia de 24/11 (entra na 1.3.0, junto com o item 15). Escolhida a opção A.
   - Luvas: 15% ou 20% Dano no fatal
   - Arma: 7% ou 10% Dano Crítico
 - [x] Banco: `pedra_<peca>` em `user_pecas_void` ("18|10% Dano Crítico"; vazio = não informada). Colunas opcionais
-- [x] Card (opção A): chip do nível antes do nome da peça: **dourado** = status forte, **roxo** = fraco, vazado "–" = não informada. Passar o mouse mostra "PEDRA · ARMA / +18 · 10% Dano Crítico"; clicar abre a edição rápida
+- [x] Card (opção A): chip do nível antes do nome da peça, na cor do **nível** (regra de 24/11, depois da 1.3.0): **+18 vermelho**, **+17 dourado**, **+11 a +16 verde**, **+0 a +10 cinza**; vazado "–" = não informada. A edição rápida mostra a mesma cor ao lado do nível. Com o status **mais forte** da peça (+600, +800, MP 10%, 20% fatal, 10% crítico), um **pontinho branco** no canto de cima do chip, sem mudar a cor; o balão diz "● status mais forte". Passar o mouse mostra "PEDRA · ARMA / +18 · 10% Dano Crítico"; clicar abre a edição rápida
 - [x] Edição rápida (a mesma das cartas, agora "Pedra e cartas"): nível e status no topo. **O status é obrigatório junto do nível**: com só um dos dois, aparece o aviso e a janela não troca de peça nem fecha (ou completa, ou volta os dois para "–")
 - [x] Testes: `tests/test_cartas_void.py` e `tests/integracao/teste_cartas_void.py`
 

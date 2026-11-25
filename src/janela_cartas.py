@@ -19,10 +19,11 @@ import tkinter as tk
 import customtkinter as ctk
 
 import caminhos
-from card_personagem import PECAS_VOID
+from card_personagem import CORES_PEDRA, PECAS_VOID
 from config_app import ABA_PECAS, ROTULOS_COLUNAS
 from dados_app import (CARTAS_VOID, NIVEL_PEDRA_MAXIMO, PECAS_COM_CARTAS,
                        PEDRAS_VOID, SLOTS_CARTAS, coluna_cartas, coluna_pedra,
+                       cor_da_pedra,
                        estado_da_carta, juntar_cartas, juntar_pedra,
                        ler_cartas, ler_pedra, validar_pedra)
 from opcoes import coluna_banco
@@ -107,12 +108,17 @@ class JanelaCartas(ctk.CTkToplevel):
                       dropdown_fg_color=CORES["painel"],
                       dropdown_hover_color="#3a3358",
                       text_color=CORES["texto"], font=ctk.CTkFont(size=13))
+        # a cor do nivel (a mesma do chip do card)
+        self.marca_pedra = ctk.CTkLabel(linha_pedra, text="", width=14,
+                                        height=14, corner_radius=3,
+                                        fg_color=CORES["painel"])
+        self.marca_pedra.pack(side="left", padx=(2, 8))
         self.menu_nivel = ctk.CTkOptionMenu(
             linha_pedra, width=90, values=[SEM_PEDRA] + NIVEIS_PEDRA,
             command=lambda _v: self._escolher_pedra(), **estilo)
-        self.menu_nivel.pack(side="left", padx=(2, 8))
+        self.menu_nivel.pack(side="left", padx=(0, 8))
         self.menu_status = ctk.CTkOptionMenu(
-            linha_pedra, width=310, values=[SEM_PEDRA],
+            linha_pedra, width=290, values=[SEM_PEDRA],
             command=lambda _v: self._escolher_pedra(), **estilo)
         self.menu_status.pack(side="left")
         self.erro_pedra = ctk.CTkLabel(self, text="", height=18,
@@ -229,8 +235,18 @@ class JanelaCartas(ctk.CTkToplevel):
         return ("" if nivel == SEM_PEDRA else nivel,
                 "" if status == SEM_PEDRA else status)
 
+    def _pintar_nivel(self):
+        """O quadradinho ao lado do nivel: +18 vermelho, +17 dourado,
+        +11 a +16 verde, +0 a +10 cinza."""
+        texto = self.menu_nivel.get()
+        nivel = None if texto == SEM_PEDRA else int(texto.lstrip("+"))
+        cor = cor_da_pedra(nivel)
+        self.marca_pedra.configure(
+            fg_color=CORES_PEDRA[cor][0] if cor else CORES["painel"])
+
     def pedra_valida(self):
         """A pedra escolhida pode ficar? (mostra o erro se nao)."""
+        self._pintar_nivel()
         erro = validar_pedra(*self._pedra_escolhida())
         self.erro_pedra.configure(text=erro or "")
         return erro is None
@@ -263,6 +279,7 @@ class JanelaCartas(ctk.CTkToplevel):
         self.menu_nivel.set(SEM_PEDRA if nivel is None else f"+{nivel}")
         self.menu_status.set(status or SEM_PEDRA)
         self.erro_pedra.configure(text="")
+        self._pintar_nivel()
         opcoes = list(CARTAS_VOID[self.peca])
         for (marca, menu), carta in zip(self.slots, self._ler()):
             valores = [VAZIO] + opcoes
