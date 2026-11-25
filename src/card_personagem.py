@@ -639,6 +639,11 @@ class CardPersonagem:
         self._esconder_titulos()
         if dados is not None:
             self.dados = dados
+        # a altura depende dos dados (ex.: um acessorio a mais ocupa mais
+        # linhas): sem recalcular, o fundo ficava com a altura antiga e o
+        # rodape (Libertacao e a seta) saia para fora do card. Quem chama
+        # reposiciona a grade pela altura nova (_reordenar_cards)
+        self.altura = self._calcular_altura()
         for item in getattr(self, "_itens", []):
             try:
                 self.canvas.delete(item)

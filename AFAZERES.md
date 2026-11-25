@@ -178,6 +178,7 @@ Ideias de 24/11. Opções escolhidas: **A em todos** (maquetes mostradas na conv
 - [x] Card: o Colar entra por último nos acessórios, com a borda da cor da regra: Julgamento Radiante = **azul**, Outro = **cinza** (cor nova)
 - [x] No caminho: nome de acessório que não cabia em 2 linhas perdia o resto sem aviso; agora termina em "…". O último acessório não encosta mais na borda do painel
 - [x] Testes: `tests/test_colar.py` e `tests/integracao/teste_colar.py`
+- [x] **Bug (visto na 1.3.1):** depois de escolher um acessório (ex.: o Colar) o card era redesenhado com a altura ANTIGA e o rodapé (Libertação e a seta) ficava fora do fundo do card. Agora `atualizar()` recalcula a altura e a grade se reposiciona; teste em `tests/test_cartas_void.py` (falha no código antigo)
 
 ### 16. Pedra dos equipamentos do Void ✅ (`sql/pedras_void.sql` aplicado em 24/11)
 Ideia de 24/11 (entra na 1.3.0, junto com o item 15). Escolhida a opção A.

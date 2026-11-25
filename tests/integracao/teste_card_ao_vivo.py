@@ -101,7 +101,9 @@ def main(argv):
               linha.get("void_4") or linha.get("Void 4"))
 
     # --- 4) acessorio com a cor da regra --------------------------------
-    combos = {k[1]: v for k, v in janela._linhas.items() if k[0] == "acesso"}
+    # (os titulos sao caixas desde a 1.3.0: ficam de fora, tem teste proprio)
+    combos = {k[1]: v for k, v in janela._linhas.items()
+              if k[0] == "acesso" and hasattr(v, "cget")}
     for chave, combo in combos.items():
         valores = list(combo.cget("values"))
         if not valores:

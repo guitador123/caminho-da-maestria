@@ -72,8 +72,11 @@ def main(argv):
             print(f"   {tabela}: (vazia)")
             continue
         colunas = set(dados[0].keys())
+        # as colunas opcionais (criadas pelos SQLs dos itens novos, como
+        # as cartas e a pedra do Void) tambem sao do app
         desconhecidas = sorted(colunas - set(db.COLUNAS[logica])
-                               - PERMITIDAS[logica])
+                               - PERMITIDAS[logica]
+                               - set(db.EXTRAS_OPCIONAIS.get(logica, ())))
         if desconhecidas:
             print(f"   {tabela}: FALHOU -> colunas fora: {desconhecidas}")
             problemas += 1

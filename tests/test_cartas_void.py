@@ -188,3 +188,30 @@ def test_pontinho_aparece_so_no_status_forte():
         assert ovais("luvas") == []
     finally:
         raiz.destroy()
+
+
+def test_card_redesenhado_cresce_e_o_rodape_fica_dentro():
+    """Bug: depois de escolher um acessorio (ex.: o Colar), o card era
+    redesenhado com a altura ANTIGA e o rodape (Libertacao e a seta)
+    ficava fora do fundo do card."""
+    import tkinter as tk
+    from card_personagem import CardPersonagem
+    try:
+        raiz = tk.Tk()
+    except tk.TclError as erro:
+        pytest.skip(f"sem tela para o Tk: {erro}")
+    try:
+        canvas = tk.Canvas(raiz)
+        card = CardPersonagem(canvas, 0, 0, {"nome": "Ai", "libertacao": "FALSO"})
+        antes = card.altura
+        card.atualizar({"nome": "Ai", "libertacao": "FALSO", "acessorios": {
+            "anel": "Anel do Ciclo Infinito", "brinco": "Brinco do Piu Piu",
+            "piercing": "Piercing do Piu Piu", "tornozeleira": "Apocalipse",
+            "colar": "Outro"}})
+        assert card.altura > antes
+        fundo = canvas.bbox(card._itens[0])           # a imagem do cartao
+        mais_baixo = max(canvas.bbox(i)[3] for i in card._itens)
+        assert mais_baixo <= fundo[3]
+        assert fundo[3] - fundo[1] >= card.altura - 1
+    finally:
+        raiz.destroy()
