@@ -291,12 +291,11 @@ class CardPersonagem:
             return
         for item in getattr(self, "_itens", []):
             try:
-                coords = self.canvas.coords(item)
-                if not coords:
-                    continue
-                novos = [coords[0] + dx, coords[1] + dy]
-                novos += list(coords[2:])
-                self.canvas.coords(item, *novos)
+                # move TODOS os pontos do item. Antes so o 1o par andava:
+                # bastava para texto e imagem (1 ponto), mas o pontinho da
+                # pedra (um oval, 2 cantos) esticava ate virar arcos
+                # gigantes atravessando a tela
+                self.canvas.move(item, dx, dy)
             except tk.TclError:
                 pass                      # janela ja fechada
             except Exception:

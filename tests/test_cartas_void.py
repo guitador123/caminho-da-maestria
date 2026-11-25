@@ -215,3 +215,33 @@ def test_card_redesenhado_cresce_e_o_rodape_fica_dentro():
         assert fundo[3] - fundo[1] >= card.altura - 1
     finally:
         raiz.destroy()
+
+
+def test_mover_o_card_nao_estica_o_pontinho_da_pedra():
+    """Bug (1.3.1): ao filtrar/reordenar, o card e MOVIDO sem redesenhar e
+    so o 1o ponto de cada item andava. O pontinho (oval de 2 cantos)
+    esticava e virava arcos brancos gigantes atravessando a tela."""
+    import tkinter as tk
+    from card_personagem import CardPersonagem
+    try:
+        raiz = tk.Tk()
+    except tk.TclError as erro:
+        pytest.skip(f"sem tela para o Tk: {erro}")
+    try:
+        canvas = tk.Canvas(raiz)
+        card = CardPersonagem(canvas, 0, 0, {"nome": "Ai", "pecas": {
+            "pedraarma": "18|10% Dano Crítico"}})
+        antes = {i: canvas.coords(i) for i in card._itens}
+        card.mover_para(400, 1200)
+        for item, coords in antes.items():
+            depois = canvas.coords(item)
+            esperado = [c + (400 if k % 2 == 0 else 1200)
+                        for k, c in enumerate(coords)]
+            assert depois == pytest.approx(esperado), canvas.type(item)
+        # (o outro oval do card e o circulo do retrato, sem a arte)
+        oval = next(i for i in canvas.find_withtag(f"{card.tag}_pedra_arma")
+                    if canvas.type(i) == "oval")
+        x1, y1, x2, y2 = canvas.coords(oval)
+        assert x2 - x1 < 20 and y2 - y1 < 20         # continua um pontinho
+    finally:
+        raiz.destroy()
