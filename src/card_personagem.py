@@ -16,6 +16,10 @@ from PIL import Image, ImageDraw, ImageTk
 
 from opcoes import normalizar
 from registro import falha
+from dados_app import (abreviar_ataque, formatar_percentual, soma_no_milhar,
+                       ler_titulos, ler_cartas, estado_da_carta,
+                       coluna_cartas, PECAS_COM_CARTAS, SLOTS_CARTAS,
+                       coluna_pedra, ler_pedra, forca_da_pedra)
 
 # --------------------------------------------------------------------- cores
 CORES = {
@@ -47,9 +51,11 @@ ALTURA_CABECALHO = 150
 RETRATO_LARGURA = 112
 RETRATO_TOPO = 46
 ESCALA_MAX = 1.6         # no QHD (2560)
+# onde comeca o nome das pecas do Void (antes dele: check + chip da pedra)
+X_NOME_PECA = 61
 # Altura do card no design (escala 1.0). O app usa isso para escolher a
 # escala do card conforme a resolucao (para o card caber inteiro na tela).
-ALTURA_CARD_BASE = 950
+ALTURA_CARD_BASE = 1014       # +64 da faixa de status (15.1)
 
 PECAS_VOID = [
     ("arma", "Arma"), ("luvas", "Luvas"), ("cota", "Cota"), ("botas", "Botas"),
@@ -61,6 +67,7 @@ PECAS_VOID = [
 ACESSORIOS_CARD = [
     ("anel", "Anel"), ("tornozeleira", "Tornozeleira"),
     ("brinco", "Brinco"), ("piercing", "Piercing"),
+    ("colar", "Colar"),                  # 15.5
 ]
 
 # as 7 dungeons semanais (chaves NORMALIZADAS: "Void 4" -> "void4")
@@ -86,6 +93,7 @@ CORES_NOME = {
     "verde": "#4ade80",
     "roxo": "#c084fc",
     "vermelho": "#fb7185",
+    "cinza": "#9ca3af",
 }
 
 # Regras de cor dos acessórios (definidas pelo usuario em 14/11).
@@ -119,8 +127,18 @@ REGRAS_ACESSORIOS = {
         ("eternidade", "azul"),
     ],
 }
+# Colar (definido pelo usuario em 24/11)
+REGRAS_ACESSORIOS["colar"] = [
+    ("julgamento radiante", "azul"),
+    ("outro", "cinza"),
+]
 # brinco e piercing seguem as mesmas regras
 REGRAS_ACESSORIOS["piercing"] = REGRAS_ACESSORIOS["brinco"]
+
+
+def coluna_banco_cartas(peca):
+    """A chave das cartas da peca no dict "pecas" do card ("cartascota")."""
+    return normalizar(coluna_cartas(peca))
 
 
 def cor_do_acessorio(chave, valor):
@@ -224,7 +242,7 @@ class CardPersonagem:
     _contador = 0
 
     def __init__(self, canvas, x, y, dados, ao_abrir=None, pasta_retratos=None,
-                 escala=1.0, ao_missao=None):
+                 escala=1.0, ao_missao=None, ao_cartas=None):
         self.canvas = canvas
         self.x0 = x
         self.y0 = y
@@ -233,6 +251,11 @@ class CardPersonagem:
         self.ao_abrir = ao_abrir
         # callback do modo "missao rapida": (chave_da_missao, nome)
         self.ao_missao = ao_missao
+        # callback das cartas do Void (15.3): (nome, peca)
+        self.ao_cartas = ao_cartas
+        # o clique numa peca com cartas NAO abre a edicao do personagem
+        # (o Tk chama os handlers de TODAS as tags do item)
+        self._clique_tratado = False
         self.pasta_retratos = pasta_retratos
         self._fotos = {}
         self._fontes = {}
@@ -293,7 +316,7 @@ class CardPersonagem:
         if not self.ao_abrir:
             return
         self.canvas.tag_bind(self.tag, "<Button-1>",
-                             lambda e, c=self: c.ao_abrir(c.dados))
+                             lambda e, c=self: c._clicar_card())
         self.canvas.tag_bind(self.tag, "<Enter>",
                              lambda e: self.canvas.configure(cursor="hand2"))
         self.canvas.tag_bind(self.tag, "<Leave>",
@@ -308,6 +331,19 @@ class CardPersonagem:
                                  lambda e: self.canvas.configure(cursor="hand2"))
             self.canvas.tag_bind(tag, "<Leave>",
                                  lambda e: self.canvas.configure(cursor=""))
+
+    def _clicar_card(self):
+        if self._clique_tratado:
+            self._clique_tratado = False
+            return
+        self.ao_abrir(self.dados)
+
+    def _clicar_cartas(self, peca):
+        """Clique na linha de uma peca do Void: abre a edicao rapida das
+        cartas dela (e nao a do personagem)."""
+        self._clique_tratado = True
+        if self.ao_cartas:
+            self.ao_cartas(self.dados.get("nome"), peca)
 
     def _clicar_missao(self, chave, nome):
         """Clique num chip de missao (so age se o app estiver no modo)."""
@@ -426,7 +462,7 @@ class CardPersonagem:
         return total + espaco * (len(caracteres) - 1)
 
     def _chip(self, x, y, texto, cor_fundo, cor_texto, tamanho=11, padding=8,
-              altura=22, radius=11, cor_borda=None, largura_max=None):
+              altura=22, radius=11, cor_borda=None, largura_max=None, tags=()):
         """Chip de texto (trunca com reticencias se nao couber em largura_max)."""
         if largura_max:
             # largura_max = largura DISPONIVEL em unidades de DESIGN
@@ -443,10 +479,10 @@ class CardPersonagem:
         img = self._img(f"chip_{texto}_{x}_{y}",
                         self._painel(cor_fundo, largura, altura, raio=radius,
                                      borda=cor_borda))
-        self.create_image(x, y, anchor="nw", image=img)
+        self.create_image(x, y, anchor="nw", image=img, tags=tags)
         self.create_text(x + largura / 2, y + altura / 2, text=texto,
                          font=self.f(tamanho, "bold"), fill=cor_texto,
-                         anchor="center")
+                         anchor="center", tags=tags)
         return largura
 
     # ------------------------------------------------- metricas e medidas --
@@ -500,8 +536,14 @@ class CardPersonagem:
         # + a area do retrato (que fica abaixo do badge do nome)
         L["alt_cabecalho"] = L["credito_y"] + alt(9) + 33
 
+        # --- faixa de status (15.1), logo abaixo do cabecalho ---
+        L["status_y"] = L["alt_cabecalho"] + 12
+        L["status_rotulo_h"] = alt(8)
+        L["status_valor_h"] = alt(13, "bold")
+        L["status_h"] = 8 + L["status_rotulo_h"] + L["status_valor_h"] + 8
+
         # --- progresso ---
-        L["prog_titulo_y"] = L["alt_cabecalho"] + 14
+        L["prog_titulo_y"] = L["status_y"] + L["status_h"] + 14
         L["painel_y"] = L["prog_titulo_y"] + alt(12, "bold") + 8
         L["stat_rotulo_h"] = alt(8)
         L["stat_valor_h"] = alt(15, "bold")
@@ -551,6 +593,7 @@ class CardPersonagem:
             valor = acessorios.get(chave) or ""
             L["eq_acess_h"] += L["acc_rotulo_h"]
             L["eq_acess_h"] += L["acc_valor_h"] if valor else 8
+        L["eq_acess_h"] += 8             # o ultimo nao encosta na borda
         L["eq_h"] = max(L["eq_pecas_h"], L["eq_acess_h"])
 
         # --- rodape ---
@@ -575,6 +618,7 @@ class CardPersonagem:
                                     borda=CORES["cartao_borda"])))
 
         self._desenhar_cabecalho()
+        self._desenhar_status()
         self._desenhar_progresso()
         self._desenhar_dungeons()
         self._desenhar_blocos()
@@ -583,6 +627,7 @@ class CardPersonagem:
 
     def atualizar(self, dados=None):
         """Redesenha o card (edicao ao vivo)."""
+        self._esconder_titulos()
         if dados is not None:
             self.dados = dados
         for item in getattr(self, "_itens", []):
@@ -631,13 +676,25 @@ class CardPersonagem:
         # badge de poder
         poder = dados.get("poder") or 0
         texto_poder = f"{poder:,}".replace(",", ".")
-        self._chip(MARGEM, lay["badge_y"], "\u26a1 " + texto_poder,
-                   CORES["painel"], CORES["texto"], tamanho=12,
-                   altura=lay["badge_h"], radius=lay["badge_h"] / 2)
+        largura_poder = self._chip(MARGEM, lay["badge_y"], "\u26a1 " + texto_poder,
+                                   CORES["painel"], CORES["texto"], tamanho=12,
+                                   altura=lay["badge_h"],
+                                   radius=lay["badge_h"] / 2)
+
+        # soma Ataque + Ataque Especial "no milhar" (15.1): so aparece
+        # quando ha ataque preenchido
+        if _inteiro(dados.get("ataque")) + _inteiro(dados.get("ataque_especial")):
+            soma = soma_no_milhar(dados.get("ataque"),
+                                  dados.get("ataque_especial"))
+            self._chip(MARGEM + largura_poder + 6, lay["badge_y"], soma,
+                       CORES["chip_violeta"], "#ffffff", tamanho=12,
+                       altura=lay["badge_h"], radius=lay["badge_h"] / 2)
 
         # badge do nome
         nome = dados.get("nome") or "?"
-        largura_nome = self._largura_texto(nome, 17)
+        # em unidades de DESIGN (antes era em px reais e a escala era
+        # aplicada de novo: o badge crescia demais em telas grandes)
+        largura_nome = self._largura_design(nome, 17)
         self.create_image(LARGURA - MARGEM - largura_nome - 20, lay["badge_y"],
                           anchor="nw",
                           image=self._img(
@@ -656,20 +713,119 @@ class CardPersonagem:
                     cor=CORES["fraco"], peso="normal", espaco=1.0,
                     largura_max=largura_livre)
 
-        # titulo/origem (titulo obtido no jogo - dropdown na tela de edicao)
-        titulo = dados.get("titulo") or ""
-        if titulo:
+        # titulos (15.2): o mais forte no chip dourado; os outros viram
+        # um "+N" ao lado, e passar o mouse nele mostra a lista inteira
+        titulos = ler_titulos(dados.get("titulo"))
+        if titulos:
             # nao pode invadir o retrato a direita
             largura_max = (LARGURA - RETRATO_LARGURA - MARGEM - 8
                            if self._largura_retrato else LARGURA - MARGEM * 2)
-            self._chip(MARGEM, lay["titulo_y"], titulo, CORES["dourado"], "#241a05",
-                       tamanho=11, altura=lay["titulo_h"],
-                       radius=lay["titulo_h"] / 2,
-                       largura_max=largura_max)
+            mais = f"+{len(titulos) - 1}" if len(titulos) > 1 else ""
+            largura_mais = (self._largura_design(mais, 11) + 14) if mais else 0
+            tag_titulos = f"{self.tag}_titulos"
+            largura = self._chip(
+                MARGEM, lay["titulo_y"], titulos[0], CORES["dourado"],
+                "#241a05", tamanho=11, altura=lay["titulo_h"],
+                radius=lay["titulo_h"] / 2,
+                largura_max=largura_max - (largura_mais + 6 if mais else 0),
+                tags=(tag_titulos,))
+            if mais:
+                self._chip(MARGEM + largura + 6, lay["titulo_y"], mais,
+                           CORES["painel"], CORES["dourado"], tamanho=11,
+                           padding=7, altura=lay["titulo_h"],
+                           radius=lay["titulo_h"] / 2,
+                           cor_borda=CORES["dourado"], tags=(tag_titulos,))
+            # a lista aparece passando o mouse em qualquer um dos dois chips
+            self._titulos = titulos
+            self.canvas.tag_bind(tag_titulos, "<Enter>",
+                                 lambda e: self._mostrar_titulos())
+            self.canvas.tag_bind(tag_titulos, "<Leave>",
+                                 lambda e: self._esconder_titulos())
 
         # credito
         self._texto(MARGEM, lay["credito_y"], "Arte via Grand Chase Wiki", 9,
                     cor=CORES["fraco"])
+
+    # ---------------------------------------------------- lista de titulos --
+    def _mostrar_titulos(self):
+        """Balao com TODOS os titulos (o mais forte em dourado), logo abaixo
+        do chip. Fica por cima dos outros itens do canvas."""
+        titulos = getattr(self, "_titulos", [])
+        if not titulos:
+            return
+        lay = self._layout()
+        self._mostrar_balao(MARGEM, lay["titulo_y"] + lay["titulo_h"] + 4,
+                            f"T\u00cdTULOS ({len(titulos)})", titulos)
+
+    def _mostrar_balao(self, x, y, cabecalho, linhas, borda=None):
+        """Balao (em unidades de DESIGN, a partir de x, y) com um cabecalho
+        pequeno e as linhas (a 1a em dourado). Fica por cima de tudo e nao
+        passa da borda direita do card."""
+        self._esconder_titulos()
+        tag = f"{self.tag}_balao"
+        passo = self._alt(10, "bold") + 3
+        alto_cabecalho = self._alt(8) + 6
+        largura = max(self._largura_design(t, 10) for t in linhas) + 24
+        largura = min(max(largura, 120), LARGURA - MARGEM * 2)
+        x = min(x, LARGURA - MARGEM - largura)
+        altura = 10 + alto_cabecalho + passo * len(linhas) + 6
+        self._fotos["balao"] = ImageTk.PhotoImage(
+            self._painel("#1b1930", largura, altura, raio=8,
+                         borda=borda or CORES["dourado"]))
+        self.canvas.create_image(self.x0 + x * self.s, self.y0 + y * self.s,
+                                 anchor="nw", tags=(tag,),
+                                 image=self._fotos["balao"])
+        self.canvas.create_text(self.x0 + (x + 12) * self.s,
+                                self.y0 + (y + 8) * self.s, text=cabecalho,
+                                font=self.f(8), fill=CORES["suave"],
+                                anchor="nw", tags=(tag,))
+        for indice, linha in enumerate(linhas):
+            texto = self._cortar(linha, 10, "bold", (largura - 24) * self.s)
+            self.canvas.create_text(
+                self.x0 + (x + 12) * self.s,
+                self.y0 + (y + 8 + alto_cabecalho + indice * passo) * self.s,
+                text=texto, font=self.f(10, "bold"),
+                fill=CORES["dourado"] if indice == 0 else CORES["texto"],
+                anchor="nw", tags=(tag,))
+        self.canvas.tag_raise(tag)
+
+    def _esconder_titulos(self):
+        try:
+            self.canvas.delete(f"{self.tag}_balao")
+        except tk.TclError:
+            pass                          # janela ja fechada
+
+    # ------------------------------------------------------------ status --
+    def _desenhar_status(self):
+        """Faixa com os 5 status (15.1): ATQ, ESP, CRIT, D.CRIT, COSTAS."""
+        dados = self.dados
+        lay = self._layout()
+        y = lay["status_y"]
+        largura = LARGURA - MARGEM * 2
+        self.create_image(MARGEM, y, anchor="nw", image=self._img(
+            "painel_status", self._painel(CORES["painel"], largura,
+                                          lay["status_h"],
+                                          borda=CORES["painel_borda"])))
+        itens = [
+            ("ATQ", abreviar_ataque(dados.get("ataque"))),
+            ("ESP", abreviar_ataque(dados.get("ataque_especial"))),
+            ("CRIT", formatar_percentual(dados.get("critico"))),
+            ("D.CRIT", formatar_percentual(dados.get("dano_critico"))),
+            ("COSTAS", formatar_percentual(dados.get("dano_costas"))),
+        ]
+        coluna = (largura - 8) / len(itens)
+        for indice, (rotulo, valor) in enumerate(itens):
+            cx = MARGEM + 4 + coluna * (indice + 0.5)
+            self.create_text(cx, y + 8, text=rotulo, font=self.f(8),
+                             fill=CORES["suave"], anchor="n")
+            # "1250,75%" nao cabe em 13: a fonte encolhe ate caber
+            tamanho = 13
+            while (tamanho > 9 and self._largura_texto(valor, tamanho)
+                   > (coluna - 4) * self.s):
+                tamanho -= 1
+            self.create_text(cx, y + 8 + lay["status_rotulo_h"], text=valor,
+                             font=self.f(tamanho, "bold"),
+                             fill=CORES["texto"], anchor="n")
 
     # --------------------------------------------------------- progresso --
     def _desenhar_progresso(self):
@@ -841,9 +997,12 @@ class CardPersonagem:
                              font=self.f(10, "bold"),
                              fill=CORES["verde"] if ok else "#fb7185",
                              anchor="nw")
-            self.create_text(x + 36, py, text=rotulo, font=self.f(9),
+            self.create_text(x + X_NOME_PECA, py, text=rotulo, font=self.f(9),
                              fill=CORES["texto"] if ok else CORES["fraco"],
                              anchor="nw")
+            if chave in PECAS_COM_CARTAS:
+                self._desenhar_cartas(chave, x, py, largura_esq,
+                                      lay["peca_passo"], pecas)
 
         # --- acessorios ---
         x2 = x + largura_esq + 10
@@ -894,6 +1053,76 @@ class CardPersonagem:
             self.canvas.tag_bind(self.tag_seta, "<Leave>",
                                  lambda e: self.canvas.configure(cursor=""))
 
+    def _desenhar_cartas(self, peca, x, py, largura, passo, pecas):
+        """Os 4 quadradinhos das cartas da peca (15.3), alinhados a direita:
+        verde = carta que da status; vermelho = "Outra"; vazado = vazio.
+        A linha inteira e clicavel (abre a edicao rapida)."""
+        slots = ler_cartas(pecas.get(coluna_banco_cartas(peca)))
+        lado = 9
+        vao = 3
+        topo = py + (passo - lado) / 2
+        inicio = x + largura - 12 - SLOTS_CARTAS * lado - (SLOTS_CARTAS - 1) * vao
+        tag = f"{self.tag}_cartas_{peca}"
+        for indice, carta in enumerate(slots):
+            estado = estado_da_carta(carta)
+            qx = inicio + indice * (lado + vao)
+            if estado == "status":
+                cor, borda = CORES["verde"], CORES["verde"]
+            elif estado == "outra":
+                cor, borda = CORES["vermelho"], CORES["vermelho"]
+            else:
+                cor, borda = CORES["painel"], CORES["fraco"]
+            self.create_image(qx, topo, anchor="nw", tags=(tag,),
+                              image=self._img(
+                                  f"carta_{peca}_{indice}",
+                                  self._painel(cor, lado, lado, raio=2,
+                                               borda=borda)))
+        # area clicavel da linha inteira: uma imagem transparente por cima
+        # (um retangulo sem preenchimento so responde na borda)
+        area = Image.new("RGBA", (max(1, int((largura - 12) * self.s)),
+                                  max(1, int(passo * self.s))), (0, 0, 0, 0))
+        self.create_image(x + 6, py - 1, anchor="nw", tags=(tag,),
+                          image=self._img(f"area_cartas_{peca}", area))
+        self.canvas.tag_bind(tag, "<Enter>",
+                             lambda e: self.canvas.configure(cursor="hand2"))
+        self.canvas.tag_bind(tag, "<Button-1>",
+                             lambda e, p=peca: self._clicar_cartas(p))
+        # a pedra (16): por cima da area clicavel, para o mouse "ver" o chip
+        self._desenhar_pedra(peca, x, py, passo, pecas, tag)
+
+    def _desenhar_pedra(self, peca, x, py, passo, pecas, tag_linha):
+        """Chip do nivel da pedra antes do nome da peca: dourado = status
+        forte, roxo = fraco, vazado = pedra nao informada. Passar o mouse
+        mostra o status; clicar abre a edicao rapida (como a linha)."""
+        nivel, status = ler_pedra(pecas.get(normalizar(coluna_pedra(peca))))
+        forca = forca_da_pedra(peca, status) if nivel is not None else None
+        if forca == "forte":
+            fundo, borda, cor = CORES["dourado"], None, "#241a05"
+        elif nivel is not None:
+            fundo, borda, cor = "#3a3358", None, "#e4defa"
+        else:
+            fundo, borda, cor = CORES["painel"], CORES["fraco"], CORES["fraco"]
+        largura, altura = X_NOME_PECA - 32, max(12, passo - 3)
+        topo = py + (passo - altura) / 2 - 1
+        tag = f"{self.tag}_pedra_{peca}"
+        self.create_image(x + 30, topo, anchor="nw", tags=(tag, tag_linha),
+                          image=self._img(f"pedra_{peca}", self._painel(
+                              fundo, largura, altura, raio=4, borda=borda)))
+        self.create_text(x + 30 + largura / 2, topo + altura / 2,
+                         text=f"+{nivel}" if nivel is not None else "\u2013",
+                         font=self.f(8, "bold"), fill=cor, anchor="center",
+                         tags=(tag, tag_linha))
+        if nivel is None:
+            return
+        nome = dict(PECAS_VOID).get(peca, peca)
+        self.canvas.tag_bind(
+            tag, "<Enter>",
+            lambda e: self._mostrar_balao(
+                x + 30, py + passo + 2, f"PEDRA \u00b7 {nome.upper()}",
+                [f"+{nivel}  \u00b7  {status}"],
+                borda=CORES["dourado"] if forca == "forte" else "#6d5bd0"))
+        self.canvas.tag_bind(tag, "<Leave>", lambda e: self._esconder_titulos())
+
     def _valor_acessorio(self, x, y, valor, largura_max, cor=None):
         """Chip do acessorio: texto quebrando em ate 2 linhas, com a cor da
         regra do usuario (e contorno para ficar legivel)."""
@@ -911,6 +1140,11 @@ class CardPersonagem:
                 atual = palavra
         if atual:
             linhas.append(atual)
+        if len(linhas) > 2:
+            # nao cabe em 2 linhas: corta a 2a com reticencias (antes o
+            # resto sumia sem aviso: "Colar do Julgamento")
+            linhas = [linhas[0], self._cortar(
+                " ".join(linhas[1:]), 9, "bold", largura_max - 12)]
         linhas = linhas[:2]
         altura = lay["acc_valor_h"]
         borda = cor or "#6d28d9"

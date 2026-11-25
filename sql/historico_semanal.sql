@@ -32,6 +32,8 @@ create table if not exists public.user_historico_semanal (
   poder bigint,
   -- o Level Chaser da conta (o mesmo em todas as linhas da semana)
   nivel_chaser bigint,
+  -- a colecao de cartas da conta (idem)
+  colecao_cartas bigint,
   pecas_void jsonb not null default '{}'::jsonb,
   desafios jsonb not null default '{}'::jsonb,
   criado_em timestamp with time zone default now() not null,
@@ -46,6 +48,11 @@ create table if not exists public.user_historico_semanal (
 -- quem rodou a versao anterior deste SQL ganha a coluna aqui
 alter table public.user_historico_semanal
   add column if not exists nivel_chaser bigint;
+alter table public.user_historico_semanal
+  add column if not exists colecao_cartas bigint;
+-- a foto le a colecao da conta (sql/colecao_cartas.sql)
+alter table public.user_characters
+  add column if not exists colecao_cartas bigint default 0;
 
 create index if not exists user_historico_semanal_user_semana
   on public.user_historico_semanal (user_id, semana);
@@ -75,9 +82,9 @@ declare
 begin
   insert into public.user_historico_semanal
     (user_id, character_id, character_name, semana, poder, nivel_chaser,
-     pecas_void, desafios)
+     colecao_cartas, pecas_void, desafios)
   select uc.user_id, uc.id, uc.character_name, p_semana, uc.poder,
-         uc.nivel_chaser,
+         uc.nivel_chaser, uc.colecao_cartas,
          coalesce((select to_jsonb(pv) - 'id' - 'character_id' - 'updated_at'
                      from public.user_pecas_void pv
                     where pv.character_id = uc.id
@@ -91,6 +98,7 @@ begin
     set character_id = excluded.character_id,
         poder = excluded.poder,
         nivel_chaser = excluded.nivel_chaser,
+        colecao_cartas = excluded.colecao_cartas,
         pecas_void = excluded.pecas_void,
         desafios = excluded.desafios,
         criado_em = now();

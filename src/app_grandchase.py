@@ -39,6 +39,7 @@ from app_atualizacao import AtualizacaoMixin  # botao da versao (atualizar)
 from app_evolucao import EvolucaoMixin        # pagina "Evolucao semanal"
 from app_offline import OfflineMixin          # copia local e sincronia
 from rolagem import RolagemSuave              # roda do mouse suave
+from dados_app import STATUS_PERSONAGEM, _decimal
 
 # constantes e helpers (reexportados: outros modulos e os testes importam
 # daqui, ex.: `from app_grandchase import FILTRO_VOID, _num`)
@@ -46,7 +47,7 @@ from config_app import (  # noqa: F401
     FILTRO_MAZMORRAS, FILTRO_VOID, FILTRO_PROGRESSO, MODO_MISSAO_JANELA,
     MODO_MISSAO_CARD, NIVEL_CHASER_PADRAO, COLUNA_NIVEL, ABA_GERAL,
     ABA_PECAS, ABA_ACESSORIOS, ABA_SEMANAIS, ROTULOS_COLUNAS, BASE_DIR,
-    BACKGROUND_PATH, EXCEL_DEFAULT, DB_FILE)
+    BACKGROUND_PATH, EXCEL_DEFAULT, DB_FILE, COLECAO_CARTAS_MAXIMO)
 from dados_app import (  # noqa: F401
     _mesmo_arquivo, _colunas_conhecidas, _rotular_colunas, _verdadeiro,
     _num, _ordenar_colunas, _coluna_dungeon_semanal, _coluna_no_df,
@@ -117,6 +118,7 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         self.arquivo_selecionado = None
         self.missao_rapida = False
         self.nivel_chaser = NIVEL_CHASER_PADRAO
+        self.colecao_cartas = 0           # 15.4: um valor por conta
         self._aviso_nivel = ""
         self._painel_missao = None
         self.ultimo_personagem_missao = None
@@ -299,8 +301,18 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         linha_acess = _linha(acess) or {}
         linha_sem = _linha(sem) or {}
 
+        # status (15.1): a coluna vem com o rotulo ("Dano nas Costas %")
+        # ou com o nome do banco ("dano_costas")
+        por_chave = {coluna_banco(k): v for k, v in linha_geral.items()}
+        status = {}
+        for chave, coluna, _rotulo, tipo in STATUS_PERSONAGEM:
+            valor = por_chave.get(coluna_banco(coluna))
+            status[chave] = (_decimal(valor) if tipo == "percentual"
+                             else _num(valor))
+
         return {
             "nome": nome,
+            **status,
             "poder": _num(linha_geral.get("Poder") or linha_geral.get("poder")),
             "torre": (linha_geral.get("Torre Das Ilusões")
                       or linha_geral.get("torre_das_ilusoes") or "0 / 30"),
@@ -405,7 +417,8 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
                     self._dados_personagem(nome),
                     ao_abrir=self._abrir_personagem,
                     pasta_retratos=pasta, escala=escala,
-                    ao_missao=self.alternar_missao_rapida)
+                    ao_missao=self.alternar_missao_rapida,
+                    ao_cartas=self._abrir_cartas)
                 self.cards_personagem.append(card)
                 altura_linha = max(altura_linha, card.altura)
             y += altura_linha + gap
@@ -433,6 +446,24 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         except Exception as e:
             falha("[Personagem] abrir a edicao", e)
             self.status(f"Erro ao abrir a edicao de {dados.get('nome')}: {e}")
+
+    def _abrir_cartas(self, nome, peca):
+        """Edicao rapida das cartas de uma peca do Void (15.3)."""
+        try:
+            from janela_cartas import JanelaCartas
+            atual = getattr(self, "_janela_cartas", None)
+            if atual is not None and atual.winfo_exists():
+                # pedra incompleta: fica na peca atual ate completar
+                if atual.pedra_valida():
+                    atual.mostrar(nome, peca)
+                atual.lift()
+                return atual
+            self._janela_cartas = JanelaCartas(self, nome, peca)
+            return self._janela_cartas
+        except Exception as e:
+            falha("[Cartas] abrir a edicao", e)
+            self.status(f"Erro ao abrir as cartas de {nome}: {e}")
+            return None
 
     def _atualizar_card(self, nome):
         """Redesenha o card de um personagem (edicao ao vivo)."""
@@ -701,6 +732,7 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         # atualizacao e o texto fica sobreposto)
         try:
             self.canvas.delete("perfil")
+            self.canvas.delete("perfil_colecao")
         except tk.TclError:
             pass                      # janela ja fechada
         except Exception:
@@ -805,11 +837,43 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         # --- a area clicavel --------------------------------------------
         self.canvas.create_rectangle(x1, y1, x2, y2, fill="", outline="",
                                      tags=("perfil",))
+        self._desenhar_colecao()
         self.canvas.tag_bind("perfil", "<Button-1>",
                              lambda e: self._abrir_perfil())
         self.canvas.tag_bind("perfil", "<Enter>",
                              lambda e: self.canvas.configure(cursor="hand2"))
         self.canvas.tag_bind("perfil", "<Leave>",
+                             lambda e: self.canvas.configure(cursor=""))
+
+    def _desenhar_colecao(self):
+        """A colecao de cartas (15.4) no painel do perfil: um bloco no vao
+        entre a barra de EXP e o distintivo. Clicar abre a edicao (e nao o
+        perfil)."""
+        lay = self.lay
+        tag = "perfil_colecao"
+        x1, y1, x2, y2 = lay.caixa(tv.PERFIL_COLECAO)
+        largura, altura = int(x2 - x1), int(y2 - y1)
+        self.canvas.create_image(
+            x1, y1, anchor="nw", tags=(tag,),
+            image=self._foto(tv.retangulo_alfa(
+                cor=(28, 22, 52), alfa=150, tamanho=(largura, altura),
+                raio=lay.f(12))))
+        cx = x1 + largura / 2
+        self._texto(cx, y1 + lay.h(12), "COLEÇÃO", 10, cor=tv.CORES["suave"],
+                    peso="bold", anchor="n", tags=(tag,))
+        self._texto(cx, y1 + lay.h(30), "DE CARTAS", 10, cor=tv.CORES["suave"],
+                    peso="bold", anchor="n", tags=(tag,))
+        valor = f"{int(self.colecao_cartas or 0):,}".replace(",", ".")
+        self._texto(cx, y1 + lay.h(47), valor, 20, cor=tv.CORES["texto"],
+                    peso="bold", anchor="n", tags=(tag,))
+        maximo = f"{COLECAO_CARTAS_MAXIMO:,}".replace(",", ".")
+        self._texto(cx, y1 + lay.h(82), f"de {maximo}", 10,
+                    cor=tv.CORES["olho"], anchor="n", tags=(tag,))
+        self.canvas.tag_raise(tag)
+        self.canvas.tag_bind(tag, "<Button-1>", lambda e: self._abrir_colecao())
+        self.canvas.tag_bind(tag, "<Enter>",
+                             lambda e: self.canvas.configure(cursor="hand2"))
+        self.canvas.tag_bind(tag, "<Leave>",
                              lambda e: self.canvas.configure(cursor=""))
 
     def _foto_do_perfil(self):

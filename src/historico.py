@@ -7,6 +7,7 @@ Uma SEMANA e uma foto de todos os personagens:
 
     {"data": date(2026, 11, 25) ou None,   # None = semana atual (parcial)
      "nivel_chaser": 412 ou None,          # o Level Chaser da conta
+     "colecao_cartas": 1840 ou None,       # a colecao de cartas da conta
      "personagens": {"Elesis": {"poder": 618002,
                                 "pecas": {"elmo", "arma", ...},
                                 "desafios": {"void4", ...}}, ...}}
@@ -66,11 +67,15 @@ def de_historico(linhas):
         if not nome:
             continue
         semana = por_data.setdefault(
-            data, {"data": data, "nivel_chaser": None, "personagens": {}})
+            data, {"data": data, "nivel_chaser": None,
+                   "colecao_cartas": None, "personagens": {}})
         # um valor por conta (repetido em todas as linhas da semana)
         nivel = linha.get("nivel_chaser")
         if nivel is not None and semana["nivel_chaser"] is None:
             semana["nivel_chaser"] = int(_num(nivel))
+        colecao = linha.get("colecao_cartas")
+        if colecao is not None and semana["colecao_cartas"] is None:
+            semana["colecao_cartas"] = int(_num(colecao))
         semana["personagens"][nome] = {
             "poder": _num(linha.get("poder")),
             "pecas": _marcadas(linha.get("pecas_void"), _CHAVES_PECAS,
@@ -88,7 +93,8 @@ def _linhas_por_nome(df):
             for linha in df.to_dict("records")}
 
 
-def da_tela(df_geral, df_pecas, df_semanais, nivel_chaser=None):
+def da_tela(df_geral, df_pecas, df_semanais, nivel_chaser=None,
+            colecao_cartas=None):
     """A semana ATUAL (parcial), a partir das abas carregadas no app (e o
     Level Chaser da conta)."""
     geral = _linhas_por_nome(df_geral)
@@ -105,7 +111,7 @@ def da_tela(df_geral, df_pecas, df_semanais, nivel_chaser=None):
                                   chave_semanal),
         }
     return {"data": None, "nivel_chaser": nivel_chaser,
-            "personagens": personagens}
+            "colecao_cartas": colecao_cartas, "personagens": personagens}
 
 
 # ----------------------------------------------------------------- numeros

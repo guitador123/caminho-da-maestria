@@ -26,7 +26,8 @@ class EvolucaoMixin:
         return historico.da_tela(self.dfs.get(ABA_GERAL),
                                  self.dfs.get(ABA_PECAS),
                                  self.dfs.get(ABA_SEMANAIS),
-                                 getattr(self, "nivel_chaser", None))
+                                 getattr(self, "nivel_chaser", None),
+                                 getattr(self, "colecao_cartas", None))
 
     def _buscar_historico(self):
         """(semanas, disponivel, resumo_visto) - roda na thread de rede."""

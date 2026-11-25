@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Janela de edicao do Nível do Chaser.
+Janelas de edicao dos valores DA CONTA (um valor para todos os personagens):
 
-O nível do Chaser é **um valor por conta** (vale para todos os personagens):
-ele fica na coluna `user_characters.nivel_chaser` e é gravado em todas as
-linhas da conta.
+  - Nível do Chaser      (user_characters.nivel_chaser, 0 a 999)
+  - Coleção de cartas    (user_characters.colecao_cartas, 0 a 2500; 15.4)
 
-Regra: número **inteiro >= 0**.
+Os dois sao gravados em todas as linhas da conta.
+
+Regra: número **inteiro** de 0 até o máximo.
 
 O erro de validação aparece **dentro** da janela (sem messagebox, para não
 travar o app).
@@ -17,7 +18,7 @@ import tkinter as tk
 import customtkinter as ctk
 
 import caminhos
-from config_app import NIVEL_CHASER_MAXIMO
+from config_app import COLECAO_CARTAS_MAXIMO, NIVEL_CHASER_MAXIMO
 from registro import falha
 
 CORES = {
@@ -34,33 +35,67 @@ CORES = {
 NIVEL_MINIMO = 0
 
 
-def validar_nivel(texto):
+def validar_inteiro(texto, nome, maximo, exemplo, artigo="o"):
     """'385' -> (385, None).  'abc' -> (None, 'mensagem de erro').
 
-    Regra do usuario: numero INTEIRO de 0 a 999 (o maximo do jogo).
-    """
+    `nome` vai na mensagem ("nível do chaser"); `artigo` concorda com ele
+    ("o nível", "a coleção")."""
     bruto = str(texto).strip()
     if bruto == "":
-        return None, "Informe o nível do chaser."
+        return None, f"Informe {artigo} {nome}."
     try:
         valor = int(bruto)
     except ValueError:
-        return None, ("O nível do chaser é um número INTEIRO "
-                      f"(ex.: {385}).")
+        return None, (f"{artigo.upper()} {nome} é um número INTEIRO "
+                      f"(ex.: {exemplo}).")
     if valor < NIVEL_MINIMO:
-        return None, f"O nível do chaser não pode ser menor que {NIVEL_MINIMO}."
-    if valor > NIVEL_CHASER_MAXIMO:
-        return None, f"O nível máximo do chaser é {NIVEL_CHASER_MAXIMO}."
+        return None, (f"{artigo.upper()} {nome} não pode ser menor que "
+                      f"{NIVEL_MINIMO}.")
+    if valor > maximo:
+        return None, f"O máximo d{artigo} {nome} é {maximo}."
     return valor, None
 
 
-class JanelaNivelChaser(ctk.CTkToplevel):
-    """Edição do nível do chaser (um valor por conta)."""
+def validar_nivel(texto):
+    """Nivel do chaser: inteiro de 0 a 999 (o maximo do jogo)."""
+    valor, erro = validar_inteiro(texto, "nível do chaser",
+                                  NIVEL_CHASER_MAXIMO, 385)
+    if erro and "máximo" in erro:
+        erro = f"O nível máximo do chaser é {NIVEL_CHASER_MAXIMO}."
+    return valor, erro
+
+
+def validar_colecao(texto):
+    """Colecao de cartas: inteiro de 0 a 2500."""
+    return validar_inteiro(texto, "coleção de cartas", COLECAO_CARTAS_MAXIMO,
+                           1840, artigo="a")
+
+
+class JanelaValorDaConta(ctk.CTkToplevel):
+    """Edicao de um numero da conta (um valor para todos os personagens).
+
+    As subclasses definem o texto, a validacao e onde gravar."""
+
+    TITULO = ""
+    CABECALHO = ""
+    DICA = ""
+    ATRIBUTO = ""           # o valor atual no app (app.<ATRIBUTO>)
+    PADRAO = 0
+    AVISO_SEM_COLUNA = ""
+
+    def validar(self, texto):
+        raise NotImplementedError
+
+    def gravar(self, valor):
+        raise NotImplementedError
+
+    def coluna_existe(self):
+        return True
 
     def __init__(self, app):
         super().__init__(app)
         self.app = app
-        self.title("Nível do Chaser")
+        self.title(self.TITULO)
         caminhos.aplicar_icone(self)
         self.geometry("400x300")
         self.resizable(False, False)
@@ -71,23 +106,20 @@ class JanelaNivelChaser(ctk.CTkToplevel):
 
         topo = ctk.CTkFrame(self, fg_color="transparent")
         topo.pack(fill="x", padx=22, pady=(20, 4))
-        ctk.CTkLabel(topo, text="NÍVEL DO CHASER",
+        ctk.CTkLabel(topo, text=self.CABECALHO,
                      font=ctk.CTkFont(size=20, weight="bold"),
                      text_color=CORES["texto"]).pack(side="left")
         ctk.CTkLabel(topo, text="(um valor para toda a conta)",
                      font=ctk.CTkFont(size=12),
                      text_color=CORES["suave"]).pack(side="left", padx=10, pady=(8, 0))
 
-        ctk.CTkLabel(self, text="Número inteiro maior ou igual a zero.",
+        ctk.CTkLabel(self, text=self.DICA,
                      font=ctk.CTkFont(size=13),
                      text_color=CORES["suave"]).pack(anchor="w", padx=22, pady=(6, 10))
 
         # aviso: a coluna do banco ainda nao existe (o SQL precisa ser rodado)
-        if getattr(app, "usar_supabase", False) and \
-                hasattr(app, "_nivel_no_banco") and not app._nivel_no_banco():
-            ctk.CTkLabel(self, text="A coluna nivel_chaser ainda não existe no "
-                                    "banco: rode sql/nivel_chaser.sql no "
-                                    "Supabase para gravar.",
+        if getattr(app, "usar_supabase", False) and not self.coluna_existe():
+            ctk.CTkLabel(self, text=self.AVISO_SEM_COLUNA,
                          font=ctk.CTkFont(size=11),
                          text_color="#fbbf24", wraplength=350,
                          justify="left").pack(anchor="w", padx=22, pady=(0, 8))
@@ -100,7 +132,7 @@ class JanelaNivelChaser(ctk.CTkToplevel):
                                     font=ctk.CTkFont(size=22, weight="bold"),
                                     justify="center")
         self.entrada.pack(pady=(0, 8))
-        self.entrada.insert(0, str(getattr(app, "nivel_chaser", 385)))
+        self.entrada.insert(0, str(getattr(app, self.ATRIBUTO, self.PADRAO)))
         self.entrada.bind("<Return>", lambda e: self._salvar())
         self.entrada.bind("<KP_Enter>", lambda e: self._salvar())
 
@@ -130,21 +162,65 @@ class JanelaNivelChaser(ctk.CTkToplevel):
         except tk.TclError:
             pass                      # janela ja fechada
         except Exception:
-            falha("focar a janela do nivel")
+            falha(f"focar a janela {self.TITULO}")
 
     def _salvar(self):
-        valor, erro = validar_nivel(self.entrada.get())
+        valor, erro = self.validar(self.entrada.get())
         if erro:
             self.erro_var.set(erro)
             self.entrada.focus_set()
             self.entrada.select_range(0, "end")
             return
         try:
-            ok = self.app.definir_nivel_chaser(valor)
+            ok = self.gravar(valor)
         except Exception as exc:
             self.erro_var.set(f"Erro ao salvar: {exc}")
             return
         if not ok:
-            self.erro_var.set("Não foi possível salvar o nível do chaser.")
+            self.erro_var.set("Não foi possível salvar.")
             return
         self.destroy()
+
+
+class JanelaNivelChaser(JanelaValorDaConta):
+    """Edição do nível do chaser (um valor por conta)."""
+
+    TITULO = "Nível do Chaser"
+    CABECALHO = "NÍVEL DO CHASER"
+    DICA = "Número inteiro de 0 a 999."
+    ATRIBUTO = "nivel_chaser"
+    PADRAO = 385
+    AVISO_SEM_COLUNA = ("A coluna nivel_chaser ainda não existe no banco: "
+                        "rode sql/nivel_chaser.sql no Supabase para gravar.")
+
+    def validar(self, texto):
+        return validar_nivel(texto)
+
+    def gravar(self, valor):
+        return self.app.definir_nivel_chaser(valor)
+
+    def coluna_existe(self):
+        return (not hasattr(self.app, "_nivel_no_banco")
+                or self.app._nivel_no_banco())
+
+
+class JanelaColecaoCartas(JanelaValorDaConta):
+    """Edição do nível da coleção de cartas (15.4, um valor por conta)."""
+
+    TITULO = "Coleção de cartas"
+    CABECALHO = "COLEÇÃO DE CARTAS"
+    DICA = f"Número inteiro de 0 a {COLECAO_CARTAS_MAXIMO:,}.".replace(",", ".")
+    ATRIBUTO = "colecao_cartas"
+    PADRAO = 0
+    AVISO_SEM_COLUNA = ("A coluna colecao_cartas ainda não existe no banco: "
+                        "rode sql/colecao_cartas.sql no Supabase para gravar.")
+
+    def validar(self, texto):
+        return validar_colecao(texto)
+
+    def gravar(self, valor):
+        return self.app.definir_colecao_cartas(valor)
+
+    def coluna_existe(self):
+        return (not hasattr(self.app, "_colecao_no_banco")
+                or self.app._colecao_no_banco())

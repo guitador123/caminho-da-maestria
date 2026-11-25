@@ -38,6 +38,11 @@ MODO_MISSAO_CARD = "card"      # clicar no chip do card marca
 NIVEL_CHASER_PADRAO = 385
 NIVEL_CHASER_MAXIMO = 999       # o nivel maximo do jogo
 
+# Colecao de cartas (15.4): tambem UM valor por conta, de 0 a 2500
+# (coluna user_characters.colecao_cartas).
+COLUNA_COLECAO = "Coleção de Cartas"
+COLECAO_CARTAS_MAXIMO = 2500
+
 COLUNA_NIVEL = "Nível do Chaser"
 
 # Abas de dados conhecidas (chaves de self.dfs)
@@ -89,6 +94,31 @@ ROTULOS_COLUNAS = {
     "libertacaonucleos": "Libertação Núcleos",
     "libertacaoepicos": "Libertação Épicos+",
     "nivelchaser": "Nível do Chaser",
+    # status do personagem (15.1)
+    "ataque": "Ataque",
+    "ataqueespecial": "Ataque Especial",
+    "critico": "Acerto Crítico %",
+    "danocritico": "Dano Crítico %",
+    "danocostas": "Dano nas Costas %",
+    # colecao de cartas da conta (15.4)
+    "colecaocartas": "Coleção de Cartas",
+    "colar": "Colar",                     # 15.5
+    # as cartas de cada equipamento do Void (15.3)
+    "cartasarma": "Cartas Arma",
+    "cartasluvas": "Cartas Luvas",
+    "cartascota": "Cartas Cota",
+    "cartasbotas": "Cartas Botas",
+    "cartascapa": "Cartas Capa",
+    "cartascalca": "Cartas Calça",
+    "cartaselmo": "Cartas Elmo",
+    # a pedra de cada equipamento do Void (16)
+    "pedraarma": "Pedra Arma",
+    "pedraluvas": "Pedra Luvas",
+    "pedracota": "Pedra Cota",
+    "pedrabotas": "Pedra Botas",
+    "pedracapa": "Pedra Capa",
+    "pedracalca": "Pedra Calça",
+    "pedraelmo": "Pedra Elmo",
 }
 
 BASE_DIR = caminhos.app_dir()

@@ -15,6 +15,8 @@ from config_app import (
     ABA_GERAL,
     ABA_PECAS,
     ABA_SEMANAIS,
+    COLECAO_CARTAS_MAXIMO,
+    COLUNA_COLECAO,
     COLUNA_NIVEL,
     NIVEL_CHASER_MAXIMO,
     NIVEL_CHASER_PADRAO)
@@ -97,6 +99,7 @@ class SalvamentoMixin:
             self._versao = 0
             self._originais_do_banco = True
             self._ler_nivel_chaser()
+            self._ler_colecao_cartas()
             self._atualizar_cards()
             self._ler_preferencia()
             self._ler_ultimo_personagem()
@@ -223,6 +226,87 @@ class SalvamentoMixin:
             return True
         self.status(f"Nivel do chaser: {numero}")
         return True
+
+    # ----------------------------------------------- colecao de cartas --
+    # (15.4) um valor por conta, como o nivel do chaser
+    def _coluna_colecao(self, df):
+        if df is None or df.empty:
+            return None
+        for coluna in df.columns:
+            if coluna_banco(coluna) == "colecaocartas":
+                return coluna
+        return None
+
+    def _ler_colecao_cartas(self):
+        """Le a colecao de cartas do dataframe (um valor por conta)."""
+        self.colecao_cartas = 0
+        df = self.dfs.get(ABA_GERAL)
+        if df is None or df.empty:
+            return self.colecao_cartas
+        coluna = self._coluna_colecao(df)
+        if coluna is None:
+            # a coluna ainda nao existe no banco: cria no dataframe (so e
+            # gravada se a coluna existir de fato no Supabase)
+            df[COLUNA_COLECAO] = 0
+            return self.colecao_cartas
+        for valor in df[coluna].tolist():
+            texto = str(valor).strip() if valor is not None else ""
+            if texto in ("", "nan", "None"):
+                continue
+            try:
+                self.colecao_cartas = min(COLECAO_CARTAS_MAXIMO, max(
+                    0, int(float(texto))))
+            except (TypeError, ValueError):
+                continue
+            break
+        return self.colecao_cartas
+
+    def _colecao_no_banco(self):
+        """A coluna user_characters.colecao_cartas existe de verdade?"""
+        if not self.usar_supabase:
+            return False
+        try:
+            from supabase_db import colunas_salvaveis
+            return "colecaocartas" in colunas_salvaveis(self.supabase,
+                                                        "personagens")
+        except Exception:
+            falha("conferir a coluna colecaocartas")
+            return False
+
+    def definir_colecao_cartas(self, valor):
+        """Grava a colecao de cartas (inteiro de 0 a 2500) e salva."""
+        try:
+            numero = int(str(valor).strip())
+        except (TypeError, ValueError):
+            return False
+        if numero < 0 or numero > COLECAO_CARTAS_MAXIMO:
+            return False
+        self.colecao_cartas = numero
+        df = self.dfs.get(ABA_GERAL)
+        if df is not None and not df.empty:
+            # um valor por conta: grava em todas as linhas
+            df[self._coluna_colecao(df) or COLUNA_COLECAO] = numero
+        self._desenhar_perfil()
+        self._marcar_modificado()
+        if self.usar_supabase:
+            self._aviso_nivel = ("" if getattr(self, "offline", False)
+                                 or self._colecao_no_banco() else
+                                 " | colecao_cartas: rode "
+                                 "sql/colecao_cartas.sql no Supabase "
+                                 "para gravar")
+            self.salvar_supabase()
+            return True
+        self.status(f"Coleção de cartas: {numero}")
+        return True
+
+    def _abrir_colecao(self):
+        """Abre a janela de edicao da colecao de cartas."""
+        try:
+            from janela_nivel import JanelaColecaoCartas
+            JanelaColecaoCartas(self)
+        except Exception as erro:
+            falha("[Colecao] abrir a edicao", erro)
+            self.status(f"Erro ao abrir a edicao da colecao: {erro}")
 
     def _abrir_nivel(self):
         """Abre a janela de edicao do nivel do chaser."""

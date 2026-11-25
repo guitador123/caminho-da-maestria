@@ -78,6 +78,7 @@ class ArquivosMixin:
 
             self.modified = False
             self._ler_nivel_chaser()
+            self._ler_colecao_cartas()
             self._atualizar_cards()
             self.status(f"Carregado: {os.path.basename(path)} | {len(abas)} abas | "
                         f"{sum(len(d) for d in self.dfs.values())} registros")

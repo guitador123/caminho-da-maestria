@@ -156,3 +156,40 @@ def test_marcas_do_eixo_sao_redondas():
     assert p.marcas(0, 1) == [0, 1]
     assert p.marcas(0, 113, quantas=4) == [0, 50, 100, 150]
     assert p.marcas(620_000, 731_000) == [600_000, 650_000, 700_000, 750_000]
+
+
+# ------------------------------------------- colecao de cartas (15.4) --
+def test_colecao_de_cartas_da_conta_por_semana():
+    linhas = [dict(_linha("Elesis", "2026-11-25", 1), colecao_cartas=1800),
+              dict(_linha("Lire", "2026-11-25", 1), colecao_cartas=1800),
+              dict(_linha("Elesis", "2026-12-02", 1), colecao_cartas="1835"),
+              # semana gravada antes do SQL da colecao: sem o numero
+              _linha("Elesis", "2026-11-18", 1)]
+    semanas = h.de_historico(linhas)
+    assert [s["colecao_cartas"] for s in semanas] == [None, 1800, 1835]
+
+
+def test_semana_atual_leva_a_colecao():
+    geral = pd.DataFrame([{"Nome": "Elesis", "Poder": 1}])
+    semana = h.da_tela(geral, None, None, nivel_chaser=1, colecao_cartas=1840)
+    assert semana["colecao_cartas"] == 1840
+    assert h.da_tela(geral, None, None)["colecao_cartas"] is None
+
+
+def test_pagina_com_a_colecao_e_sem_ela():
+    import pagina_evolucao as p
+    semanas = h.de_historico([
+        dict(_linha("Elesis", "2026-11-25", 1), colecao_cartas=1800)])
+    atual = h.da_tela(pd.DataFrame([{"Nome": "Elesis", "Poder": 1}]),
+                      None, None, colecao_cartas=1840)
+    assert p.montar(semanas, atual).width == p.LARGURA
+    assert p.montar(h.de_historico(HISTORICO), None).width == p.LARGURA
+
+
+@pytest.mark.parametrize("valor, esperado", [
+    (None, ""), (850, "850"), (1800, "1.800"), (9999, "9.999"),
+    (10_000, "10 mil"), (618_002, "618 mil"), (1_250_000, "1,25 mi"),
+])
+def test_eixo_curto(valor, esperado):
+    import pagina_evolucao as p
+    assert p.curto(valor) == esperado

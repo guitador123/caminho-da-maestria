@@ -136,6 +136,62 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 - [ ] Ranking ou painel com o progresso semanal de todos (leitura entre membros via RLS)
 - [ ] Destaque de quem ainda não fez as dungeons da semana
 
+### 15. Mais informações no card do personagem ✅
+Ideias de 24/11. Opções escolhidas: **A em todos** (maquetes mostradas na conversa).
+
+**15.1 Status do personagem** ✅ (`sql/status_personagem.sql` aplicado em 24/11)
+- [x] 5 status novos por personagem: Ataque, Ataque Especial, % de acerto crítico, % de dano crítico e Dano nas costas (colunas opcionais em `user_characters`: sem o SQL o app funciona, só não grava)
+- [x] Soma Ataque + Ataque Especial "no milhar", **cortando, sem arredondar**: 20.000 + 20.000 = 40.000 → **4.0**; 45.990 → 4.5; 123.000 → 12.3
+- [x] Os % aceitam **até 2 casas decimais**, cortando (35,259 → 35,25); vírgula ou ponto
+- [x] Card (opção A): a soma num chip roxo ao lado do ⚡ Ataque Total (só com ataque preenchido); os 5 status numa faixa logo abaixo do cabeçalho (ATQ, ESP, CRIT, D.CRIT, COSTAS; ataques abreviados "20k", "25,9k"). O card ficou 64 px mais alto
+- [x] Janela do personagem: seção "Status" com os 5 campos e a soma ao vivo
+- [x] No caminho: "20.000" (ponto de milhar) virava 20 ao gravar um campo inteiro; o badge do nome crescia demais em telas grandes (largura escalada duas vezes) e cobria a soma
+- [x] Testes: `tests/test_status.py` e `tests/integracao/teste_status_personagem.py` (janela → card ao vivo → banco → recarregar → restaura)
+
+**15.2 Vários títulos por personagem** ✅
+- [x] Cada personagem pode ter vários títulos, guardados na coluna `titulo` que já existe ("Origem do Caos | Renak | ..."), sem SQL novo. Uma versão antiga do app continua lendo o primeiro
+- [x] Sempre do mais forte ao mais fraco (a ordem do dropdown), sem repetidos; "Outro" **não** conta como título. Título fora da lista (dado antigo) vai para o fim
+- [x] Janela do personagem: uma caixa por título, em duas colunas lidas de cima para baixo
+- [x] Card (opção A): chip dourado do mais forte + "+N"; passar o mouse em qualquer um dos dois abre um balão com todos (o mais forte em dourado)
+- [x] Testes: `tests/test_titulos.py` e `tests/integracao/teste_titulos.py` (janela → card → balão → banco → recarregar → restaura)
+
+**15.3 Cartas nos equipamentos do Void** ✅ (`sql/cartas_void.sql` aplicado em 24/11)
+- [x] 4 slots em cada um dos **7 equipamentos** (Arma, Luvas, Cota, Botas, Capa, Calça, Elmo); os 5 acessórios do Void não têm. Cada slot aceita qualquer carta da lista da peça (pode repetir)
+- [x] Listas (do usuário, 24/11), do mais forte ao mais fraco, "Outra" por último: Arma e Luvas = Dano Crítico +31,5%/Ataque Especial +530, Dano Crítico +31,5%/Ataque Especial +265, Dano Crítico +31,5%, Dano Crítico +28,75%; Cota e Capa = Ataque +555, +530, +515, +507; Calça e Botas = Ataque Especial +785, +774, +772, +765; Elmo = Ataque +100 (só 2 opções)
+- [x] Banco: uma coluna de texto por equipamento em `user_pecas_void` (`cartas_cota` = "Ataque +555|Outra||Ataque +507", a posição de cada slot conta). Colunas opcionais
+- [x] Card (opção A): 4 quadradinhos por equipamento: **verde** = carta que dá status, **vermelho** = "Outra", vazado = slot vazio. Clicar na linha da peça abre a edição rápida (e não a do personagem)
+- [x] Edição rápida (`src/janela_cartas.py`): os 4 slots da peça com a cor ao lado, setas ‹ › para a peça anterior/seguinte sem fechar; cada escolha vale na hora no card; fechar salva. Também abre pelo botão "Cartas dos equipamentos" na janela do personagem
+- [x] Testes: `tests/test_cartas_void.py` e `tests/integracao/teste_cartas_void.py`
+
+**15.4 Nível da coleção de cartas** ✅ (`sql/colecao_cartas.sql` aplicado em 24/11)
+- [x] Inteiro de 0 a 2500, um valor por conta (como o Level Chaser): `user_characters.colecao_cartas`, gravado em todas as linhas. Coluna opcional: sem o SQL o app funciona, só não grava
+- [x] Painel do perfil: bloco "COLEÇÃO DE CARTAS · 1.840 · de 2.500" no vão entre a barra de EXP e o distintivo (embaixo da barra não cabe: o painel faz parte da arte de fundo). Clicar abre a edição (não o perfil)
+- [x] Janela de edição: a do Level Chaser virou uma janela genérica de "valor da conta" (`JanelaValorDaConta`), usada pelas duas; o erro aparece dentro dela
+- [x] Foto semanal: `registrar_semana` grava a coleção (`user_historico_semanal.colecao_cartas`). O app lê o histórico mesmo sem essa coluna
+- [x] Evolução: 5º número de destaque ("Coleção de cartas", com a variação) e gráfico de linha (azul) lado a lado com o do Level Chaser
+- [x] No caminho: o eixo dos gráficos mostrava "2 mil" em todas as marcas entre 1.500 e 2.499; abaixo de 10 mil agora mostra o número inteiro ("1.800")
+- [x] Testes: `tests/test_historico.py`, `tests/test_helpers.py`, `tests/test_supabase_db.py` e `tests/integracao/teste_colecao_cartas.py`
+
+**15.5 Colar nos acessórios** ✅ (`sql/colar.sql` aplicado em 24/11)
+- [x] Coluna `colar` em `user_acessorios_titulo` (opcional: sem o SQL o app funciona, só não grava)
+- [x] Dropdown "Colar" na janela do personagem: "Colar do Julgamento Radiante ( Fogo Infernal )" e "Outro"
+- [x] Card: o Colar entra por último nos acessórios, com a borda da cor da regra: Julgamento Radiante = **azul**, Outro = **cinza** (cor nova)
+- [x] No caminho: nome de acessório que não cabia em 2 linhas perdia o resto sem aviso; agora termina em "…". O último acessório não encosta mais na borda do painel
+- [x] Testes: `tests/test_colar.py` e `tests/integracao/teste_colar.py`
+
+### 16. Pedra dos equipamentos do Void ✅ (`sql/pedras_void.sql` aplicado em 24/11)
+Ideia de 24/11 (entra na 1.3.0, junto com o item 15). Escolhida a opção A.
+- [x] Cada um dos 7 equipamentos (Arma, Luvas, Cota, Botas, Capa, Calça, Elmo) tem uma pedra de **+0 a +18** com um status; **toda pedra tem status** (inclusive a +0):
+  - Elmo e Capa: Ataque +300 ou Ataque +600
+  - Cota e Botas: Ataque Especial +400 ou Ataque Especial +800
+  - Calça: Recuperação de MP 7% ou 10%
+  - Luvas: 15% ou 20% Dano no fatal
+  - Arma: 7% ou 10% Dano Crítico
+- [x] Banco: `pedra_<peca>` em `user_pecas_void` ("18|10% Dano Crítico"; vazio = não informada). Colunas opcionais
+- [x] Card (opção A): chip do nível antes do nome da peça: **dourado** = status forte, **roxo** = fraco, vazado "–" = não informada. Passar o mouse mostra "PEDRA · ARMA / +18 · 10% Dano Crítico"; clicar abre a edição rápida
+- [x] Edição rápida (a mesma das cartas, agora "Pedra e cartas"): nível e status no topo. **O status é obrigatório junto do nível**: com só um dos dois, aparece o aviso e a janela não troca de peça nem fecha (ou completa, ou volta os dois para "–")
+- [x] Testes: `tests/test_cartas_void.py` e `tests/integracao/teste_cartas_void.py`
+
 ### 13. Histórico de evolução ✅
 - [x] **Banco** (`sql/historico_semanal.sql`): o reset de quarta 03h tira uma "foto" de cada personagem ANTES de zerar (Ataque Total, as 12 peças do Void e os 7 desafios da semana) em `user_historico_semanal`. Só o dono lê (RLS); só a função do reset grava. Se a foto falhar, o reset continua
 - [x] `sql/historico_semanal.sql` aplicado (23/11): tabela com RLS (só o dono lê; usuário e anon não gravam nem chamam `registrar_semana`/`zerar_semanais`), coluna `resumo_visto` criada. A 1ª foto sai no reset de quarta, 25/11, 3h

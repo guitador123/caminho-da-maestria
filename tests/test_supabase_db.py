@@ -186,3 +186,50 @@ def test_linha_filha_sem_character_id_vai_com_o_nome():
     linha = cliente.chamadas[0][1]["dados"]["semanais"][0]
     assert linha["_nome"] == "Lire"
     assert "character_id" not in linha
+
+
+# ------------------------------------- historico sem as colunas novas --
+class _ClienteHistorico:
+    """Banco onde so existem as colunas de `existentes`."""
+
+    def __init__(self, existentes):
+        self.existentes = existentes
+        self.selecoes = []
+
+    def table(self, _nome):
+        cliente = self
+
+        class _Tabela:
+            def select(self, selecao):
+                self.selecao = selecao
+                return self
+
+            def order(self, *_a):
+                return self
+
+            def execute(self):
+                cliente.selecoes.append(self.selecao)
+                for coluna in ("nivel_chaser", "colecao_cartas"):
+                    if coluna in self.selecao and coluna not in cliente.existentes:
+                        raise ErroApi("42703", "column user_historico_semanal."
+                                      f"{coluna} does not exist")
+                return _Resposta([{"character_name": "Ai"}])
+        return _Tabela()
+
+
+@pytest.mark.parametrize("existentes, ultima", [
+    ({"nivel_chaser", "colecao_cartas"}, ",nivel_chaser,colecao_cartas"),
+    ({"nivel_chaser"}, ",nivel_chaser"),            # SQL 15.4 nao rodou
+    (set(), "desafios"),                            # nenhum dos dois
+])
+def test_historico_segue_sem_as_colunas_opcionais(existentes, ultima):
+    cliente = _ClienteHistorico(existentes)
+    linhas, disponivel = db.carregar_historico(cliente)
+    assert disponivel and linhas == [{"character_name": "Ai"}]
+    assert cliente.selecoes[-1].endswith(ultima)
+
+
+def test_gravacao_da_colecao_vira_inteiro():
+    saida = db._limpar({"Nome": "Ai", "Coleção de Cartas": "1.840"},
+                       "personagens", {"colecao_cartas"})
+    assert saida["colecao_cartas"] == 1840

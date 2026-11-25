@@ -89,6 +89,8 @@ PERFIL_ICONE = (790 - 76, 258 + 76)         # centro do icone do nivel
 PERFIL_ICONE_LADO = 142                      # tamanho do icone (design)
 # a barra de EXP (preenche conforme o nivel do chaser)
 PERFIL_EXP = (56 + 132, 258 + 104, 790 - 250, 22)   # x1, y1, x2, ALTURA
+# a colecao de cartas (15.4): o vao entre a barra de EXP e o distintivo
+PERFIL_COLECAO = (790 - 236, 258 + 40, 790 - 142, 258 + 140)  # x1, y1, x2, y2
 # a pasta com os icones por nivel do chaser (cl1.png, cl100.png, ...)
 PASTA_CHASER = "chaser"
 # a pasta com as 25 fotos de perfil (<personagem>_icon.png)

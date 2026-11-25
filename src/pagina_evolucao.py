@@ -38,6 +38,7 @@ VERDE = (52, 211, 153)
 VERMELHO = (251, 113, 133)
 AMARELO = (245, 196, 81)
 LARANJA = (251, 146, 60)          # o Level Chaser
+CIANO = (56, 189, 248)            # a colecao de cartas
 GRADE = (61, 52, 96)
 
 _ARQUIVOS_FONTE = {
@@ -68,16 +69,19 @@ def numero(valor):
 
 
 def curto(valor):
-    """618002 -> '618 mil'; 1250000 -> '1,25 mi' (eixos dos graficos)."""
+    """618002 -> '618 mil'; 1250000 -> '1,25 mi'; 1800 -> '1.800'
+    (eixos dos graficos)."""
     if valor is None:
         return ""
     valor = float(valor)
     if abs(valor) >= 1_000_000:
         return f"{valor / 1_000_000:.2f}".rstrip("0").rstrip(".").replace(
             ".", ",") + " mi"
-    if abs(valor) >= 1_000:
+    if abs(valor) >= 10_000:
         return f"{valor / 1_000:.0f} mil"
-    return f"{valor:.0f}"
+    # abaixo de 10 mil o numero inteiro (a colecao vai ate 2.500: "2 mil"
+    # em todas as marcas de 1.700 a 1.900 nao dizia nada)
+    return numero(valor)
 
 
 def diferenca_texto(diferenca, percentual=None):
@@ -324,9 +328,11 @@ def montar(semanas, atual, destaque=None, nick="", versao=""):
     y = _cabecalho(img, titulo, nick) + 6
     largura_util = LARGURA - 2 * MARGEM
 
-    # --- 4 numeros de destaque -----------------------------------------
+    # --- 5 numeros de destaque -----------------------------------------
     nivel = semana.get("nivel_chaser")
     nivel_ant = anterior.get("nivel_chaser") if anterior else None
+    colecao = semana.get("colecao_cartas")
+    colecao_ant = anterior.get("colecao_cartas") if anterior else None
     medio = h.ataque_medio(semana)
     medio_ant = h.ataque_medio(anterior) if anterior else None
     pecas = h.contagem_pecas(semana)
@@ -341,9 +347,11 @@ def montar(semanas, atual, destaque=None, nick="", versao=""):
          h.variacao(medio, medio_ant)),
         ("Level Chaser", numero(nivel), "nível da conta",
          h.variacao(nivel, nivel_ant)),
+        ("Coleção de cartas", numero(colecao), "nível da coleção",
+         h.variacao(colecao, colecao_ant)),
         ("Peças do Void", f"{total_pecas}/{max_pecas}",
          f"Equip. {pecas['equipamentos']}/{pecas['max_equipamentos']}"
-         f"  ·  Acess. {pecas['acessorios']}/{pecas['max_acessorios']}",
+         f" · Acess. {pecas['acessorios']}/{pecas['max_acessorios']}",
          h.variacao(total_pecas, (pecas_ant["equipamentos"]
                                   + pecas_ant["acessorios"])
                     if pecas_ant else None)),
@@ -385,19 +393,22 @@ def montar(semanas, atual, destaque=None, nick="", versao=""):
                    rotulos, [h.ataque_medio(s) for s in todas], ROXO, parcial)
     y += altura_painel + VAO
 
-    # --- level chaser por semana -------------------------------------------
+    # --- level chaser e colecao de cartas por semana (lado a lado) -------
+    meia = (largura_util - VAO) / 2
     altura_painel = 250
-    img = _painel(img, (MARGEM, y, LARGURA - MARGEM, y + altura_painel))
-    d = ImageDraw.Draw(img)
-    _titulo_secao(d, MARGEM + 24, y + 22, "Level Chaser da conta")
-    _grafico_linha(d, (MARGEM + 24, y + 70, LARGURA - MARGEM - 30,
-                       y + altura_painel - 50),
-                   rotulos, [s.get("nivel_chaser") for s in todas], LARANJA,
-                   parcial)
+    for lado, (titulo_painel, chave, cor) in enumerate([
+            ("Level Chaser da conta", "nivel_chaser", LARANJA),
+            ("Coleção de cartas da conta", "colecao_cartas", CIANO)]):
+        x = MARGEM + lado * (meia + VAO)
+        img = _painel(img, (x, y, x + meia, y + altura_painel))
+        d = ImageDraw.Draw(img)
+        _titulo_secao(d, x + 24, y + 22, titulo_painel)
+        _grafico_linha(d, (x + 24, y + 70, x + meia - 30,
+                           y + altura_painel - 50),
+                       rotulos, [s.get(chave) for s in todas], cor, parcial)
     y += altura_painel + VAO
 
     # --- pecas e desafios por semana (lado a lado) -----------------------
-    meia = (largura_util - VAO) / 2
     altura_painel = 290
     quantos = max(len(s["personagens"]) for s in todas) or 1
     for lado, (titulo_painel, series, maximo, legenda) in enumerate([

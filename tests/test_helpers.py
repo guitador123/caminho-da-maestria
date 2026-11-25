@@ -118,3 +118,15 @@ def test_payload_pix_tem_os_campos_do_padrao():
 def test_campos_do_payload_recusa_payload_invalido(estragado):
     with pytest.raises(ValueError):
         pix.campos_do_payload(estragado)
+
+
+@pytest.mark.parametrize("texto, valor, tem_erro", [
+    ("0", 0, False), ("1840", 1840, False), ("2500", 2500, False),
+    (" 12 ", 12, False), ("2501", None, True), ("-1", None, True),
+    ("", None, True), ("abc", None, True), ("12.5", None, True),
+])
+def test_validar_colecao(texto, valor, tem_erro):
+    from janela_nivel import validar_colecao
+    resultado, erro = validar_colecao(texto)
+    assert resultado == valor
+    assert bool(erro) == tem_erro

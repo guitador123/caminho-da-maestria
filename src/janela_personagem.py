@@ -26,12 +26,29 @@ import caminhos
 
 from opcoes import obter_opcoes
 from dados_app import _num as _num_dados
+from dados_app import (STATUS_PERSONAGEM, _decimal, formatar_decimal,
+                       soma_no_milhar, ler_titulos, juntar_titulos,
+                       titulos_do_jogo)
 from registro import falha
 
 ABA_GERAL = "Geral"
 ABA_PECAS = "Peças (Void)"
 ABA_ACESSORIOS = "Acessórios Título"
 ABA_SEMANAIS = "Semanais"
+
+class _SeletorTitulos:
+    """As caixas dos titulos respondem como um campo so: get() devolve o
+    texto gravado no banco ("Origem do Caos | Renak")."""
+
+    def __init__(self, caixas):
+        self.caixas = caixas
+
+    def get(self):
+        return juntar_titulos(t for t, caixa in self.caixas if caixa.get())
+
+
+# rotulos dos status (15.1): a coluna e criada no dataframe se faltar
+_ROTULOS_STATUS = {rotulo for _c, _b, rotulo, _t in STATUS_PERSONAGEM}
 
 # (coluna na tabela, rotulo, tipo)
 CAMPOS_GERAIS = [
@@ -53,6 +70,7 @@ PECAS = [
 ACESSORIOS = [
     ("anel", "Anel"), ("tornozeleira", "Tornozeleira"),
     ("brinco", "Brinco"), ("piercing", "Piercing"),
+    ("colar", "Colar"),                  # 15.5
 ]
 
 # as mesmas chaves NORMALIZADAS do card (card_personagem.DUNGEONS)
@@ -216,6 +234,21 @@ class JanelaPersonagem(ctk.CTkToplevel):
         self._campo_numero(rolagem, "Poder", "Ataque Total",
                            self._valor(self._geral, "Poder"))
 
+        # status (15.1): Ataque, Ataque Especial e os 3 percentuais
+        self._secao(rolagem, "Status")
+        for _chave, coluna, rotulo, tipo in STATUS_PERSONAGEM:
+            valor = self._valor(self._geral, coluna)
+            if tipo == "percentual":
+                self._campo_percentual(rolagem, rotulo, valor)
+            else:
+                self._campo_numero(rolagem, rotulo, rotulo, valor)
+        linha = self._linha_campo(rolagem, "Soma (Ataque + Especial)")
+        self._rotulo_soma = ctk.CTkLabel(
+            linha, text="", font=ctk.CTkFont(size=15, weight="bold"),
+            text_color=CORES["roxo"])
+        self._rotulo_soma.pack(side="left")
+        self._atualizar_soma()
+
         self._secao(rolagem, "Progresso")
         for coluna, rotulo, tipo in CAMPOS_GERAIS[1:]:
             valor = self._valor(self._geral, coluna)
@@ -261,6 +294,14 @@ class JanelaPersonagem(ctk.CTkToplevel):
                        padx=10, pady=4)
             real = self._coluna_no_df(self.app.dfs.get(ABA_PECAS), chave)
             self._linhas[("peca", real or chave)] = caixa
+        # as 4 cartas de cada equipamento (15.3): a mesma edicao rapida do
+        # card (clicar na linha da peca)
+        ctk.CTkButton(rolagem, text="Cartas dos equipamentos  ›", width=220,
+                      height=34, corner_radius=8, fg_color="#2a2440",
+                      hover_color="#372f52", text_color=CORES["texto"],
+                      font=ctk.CTkFont(size=13, weight="bold"),
+                      command=lambda: self.app._abrir_cartas(self.nome, "arma")
+                      ).pack(anchor="w", padx=14, pady=(8, 0))
 
         self._secao(rolagem, "Acessórios")
         for chave, rotulo in ACESSORIOS:
@@ -323,6 +364,41 @@ class JanelaPersonagem(ctk.CTkToplevel):
         entrada.bind("<FocusOut>", lambda e: self._propagar())
         return entrada
 
+    def _campo_percentual(self, pai, rotulo, valor):
+        """Campo de % com ate 2 casas decimais (aceita "35,25" e "35.25")."""
+        linha = self._linha_campo(pai, rotulo)
+        entrada = ctk.CTkEntry(linha, width=130, height=34, corner_radius=8,
+                                fg_color=CORES["painel"], border_color=CORES["painel_borda"],
+                                text_color=CORES["texto"], font=ctk.CTkFont(size=14))
+        entrada.insert(0, formatar_decimal(valor))
+        entrada.pack(side="left")
+        real = self._coluna_no_df(self.app.dfs.get(ABA_GERAL), rotulo)
+        self._linhas[("geral", real or rotulo)] = (entrada, "percentual")
+        entrada.bind("<Return>", lambda e: self._propagar())
+        entrada.bind("<FocusOut>", lambda e: self._propagar())
+        return entrada
+
+    def _atualizar_soma(self):
+        """O "4.0" ao lado dos ataques (o mesmo do card)."""
+        rotulo = getattr(self, "_rotulo_soma", None)
+        if rotulo is None:
+            return
+        valores = {}
+        for (tipo, coluna), item in self._linhas.items():
+            if tipo == "geral" and isinstance(item, tuple):
+                valores[self._coluna_banco(coluna)] = item[0].get()
+        soma = soma_no_milhar(_num(valores.get("ataque")),
+                              _num(valores.get("ataqueespecial")))
+        try:
+            rotulo.configure(text=soma)
+        except tk.TclError:
+            pass                      # janela ja fechada
+
+    @staticmethod
+    def _coluna_banco(coluna):
+        from opcoes import coluna_banco
+        return coluna_banco(coluna)
+
     def _campo_torre(self, pai, coluna, rotulo, valor):
         linha = self._linha_campo(pai, rotulo)
         entrada = ctk.CTkEntry(linha, width=90, height=34, corner_radius=8,
@@ -375,29 +451,33 @@ class JanelaPersonagem(ctk.CTkToplevel):
         return combo
 
     def _campo_titulo(self, pai):
-        """Titulo/Origem (dropdown com os titulos do jogo)."""
-        linha = self._linha_campo(pai, "Origem / Título")
-        valores = obter_opcoes(ABA_ACESSORIOS, "Título") or []
-        combo = ctk.CTkComboBox(linha, width=300, height=34, corner_radius=8,
-                                 fg_color=CORES["painel"],
-                                 border_color=CORES["painel_borda"],
-                                 button_color=CORES["roxo"],
-                                 button_hover_color="#a78bfa",
-                                 dropdown_fg_color=CORES["painel"],
-                                 dropdown_text_color=CORES["texto"],
-                                 dropdown_hover_color="#3a3358",
-                                 text_color=CORES["texto"],
-                                 font=ctk.CTkFont(size=13),
-                                 values=list(valores) or [""])
-        atual = self._valor(self._acess, "Título") or ""
-        if atual and atual not in (valores or []):
-            combo.configure(values=[atual] + list(valores or []))
-        if atual:
-            combo.set(atual)
-        combo.pack(side="left")
+        """Titulos (15.2): uma caixa por titulo do jogo, do mais forte ao
+        mais fraco. O card mostra o mais forte e "+N" para os outros."""
+        ctk.CTkLabel(pai, text="Títulos (o card mostra o mais forte)",
+                     font=ctk.CTkFont(size=13), text_color=CORES["suave"]
+                     ).pack(anchor="w", padx=6, pady=(2, 4))
+        grade = ctk.CTkFrame(pai, fg_color="transparent")
+        grade.pack(fill="x", padx=4)
+        atuais = ler_titulos(self._valor(self._acess, "Título"))
+        # um titulo fora da lista (versao antiga) continua aparecendo
+        opcoes = titulos_do_jogo()
+        opcoes += [t for t in atuais if t not in opcoes]
+        caixas = []
+        # em colunas, de cima para baixo: le-se do mais forte ao mais fraco
+        por_coluna = (len(opcoes) + 1) // 2
+        for indice, titulo in enumerate(opcoes):
+            caixa = ctk.CTkCheckBox(grade, text=titulo, font=ctk.CTkFont(size=12),
+                                     text_color=CORES["suave"],
+                                     fg_color="#d4a72c", hover_color="#f5c451",
+                                     border_color="#5b5378",
+                                     command=self._propagar)
+            if titulo in atuais:
+                caixa.select()
+            caixa.grid(row=indice % por_coluna, column=indice // por_coluna,
+                       sticky="w", padx=10, pady=3)
+            caixas.append((titulo, caixa))
         real = self._coluna_no_df(self.app.dfs.get(ABA_ACESSORIOS), "Título")
-        self._linhas[("acesso", real or "Título")] = combo
-        combo.bind("<<ComboboxSelected>>", lambda e: self._propagar())
+        self._linhas[("acesso", real or "Título")] = _SeletorTitulos(caixas)
 
     # ------------------------------------------------------------ salvar ----
     def _aplicar_ao_df(self):
@@ -410,11 +490,21 @@ class JanelaPersonagem(ctk.CTkToplevel):
                     continue
                 nome_coluna = coluna[1]
                 if nome_coluna not in df.columns:
-                    continue
+                    if nome_coluna not in _ROTULOS_STATUS:
+                        continue
+                    # status novo (15.1) que ainda nao veio do banco
+                    df[nome_coluna] = 0
                 if isinstance(item, tuple):
                     entrada, maximo = item
                     valor = _num(entrada.get())
-                    if maximo == "fracao":
+                    if maximo == "percentual":
+                        valor = _decimal(entrada.get())
+                        if df[nome_coluna].dtype.kind != "f":
+                            # coluna so com zeros chega como inteiro:
+                            # vira decimal antes de receber 35.25
+                            df[nome_coluna] = [_decimal(v)
+                                               for v in df[nome_coluna]]
+                    elif maximo == "fracao":
                         # combo de fracao: a coluna e INTEIRA no banco,
                         # entao grava so o numero ("5 / 9" -> 5)
                         pass
@@ -458,6 +548,7 @@ class JanelaPersonagem(ctk.CTkToplevel):
         """Envia as alteracoes para o app: o card atualiza na hora."""
         try:
             self._aplicar_ao_df()
+            self._atualizar_soma()
             self.app._marcar_modificado()
             self.app._atualizar_card(self.nome)
             # os contadores do "Caminho da Maestria" (despertar completo,

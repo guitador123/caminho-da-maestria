@@ -112,6 +112,15 @@ ALIASES[normalizar("Fragmento do Vazio Disperso")] = "fragmento_vazio_disperso"
 # "nivel_chaser" (sem) — o alias junta os dois.
 ALIASES[normalizar("Nível do Chaser")] = "nivel_chaser"
 
+# Status do personagem (15.1): os rótulos têm "%" e palavras a mais que a
+# coluna do banco ("Dano nas Costas %" -> "dano_costas").
+ALIASES[normalizar("Acerto Crítico %")] = "critico"
+ALIASES[normalizar("Dano Crítico %")] = "dano_critico"
+ALIASES[normalizar("Dano nas Costas %")] = "dano_costas"
+
+# Coleção de cartas (15.4): "Coleção de Cartas" -> "colecao_cartas"
+ALIASES[normalizar("Coleção de Cartas")] = "colecao_cartas"
+
 
 def obter_opcoes(aba, coluna):
     """Lista de opções (dropdown) da coluna, ou None se for campo livre."""
@@ -169,3 +178,13 @@ OPCOES = {
         "terradojulgamento": ["Falso", "Verdadeiro"],
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Opcoes que NAO vem da planilha (acrescentadas depois)
+# ---------------------------------------------------------------------------
+# Colar (15.5, regra do usuario em 24/11): do mais forte ao mais fraco
+OPCOES["Acessórios Título"]["colar"] = [
+    "Colar do Julgamento Radiante ( Fogo Infernal )",
+    "Outro",
+]

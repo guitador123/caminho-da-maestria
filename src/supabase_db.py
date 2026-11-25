@@ -17,6 +17,7 @@ Observacoes:
 """
 
 import math
+import re
 
 from supabase import create_client, Client
 
@@ -70,10 +71,17 @@ INTEIRAS = {
     "personagens": {"poder", "vazio_uni", "vazio_apo",
                     "nucleos_dimensionais", "fragmento_vazio_disperso",
                     "libertacao_nucleos", "libertacao_epicos",
-                    "nivel_chaser"},
+                    "nivel_chaser", "ataque", "ataque_especial",
+                    "colecao_cartas"},
     "pecas_void": set(),
     "acessorios_titulo": set(),
     "semanais": set(),
+}
+
+# Colunas numeric(8, 2): os % dos status (15.1). Gravadas com ate 2 casas
+# decimais, cortando (nunca arredondando para cima).
+DECIMAIS = {
+    "personagens": {"critico", "dano_critico", "dano_costas"},
 }
 
 # Rotulos de exibicao (banco bool -> texto da planilha) por tabela filha
@@ -92,7 +100,21 @@ EXTRAS_OPCIONAIS = {
     "semanais": {"torre_das_ilusoes", TORRE_SEMANAL},
     # nivel do chaser (pendencia #3): um valor por conta, gravado em todas
     # as linhas de user_characters. So e enviado se a coluna existir.
-    "personagens": {"nivel_chaser"},
+    "personagens": {"nivel_chaser",
+                    # status do personagem (15.1, sql/status_personagem.sql)
+                    "ataque", "ataque_especial", "critico", "dano_critico",
+                    "dano_costas",
+                    # colecao de cartas (15.4, sql/colecao_cartas.sql)
+                    "colecao_cartas"},
+    # o Colar (15.5, sql/colar.sql)
+    "acessorios_titulo": {"colar"},
+    # as 4 cartas de cada equipamento (15.3, sql/cartas_void.sql)
+    "pecas_void": {"cartas_arma", "cartas_luvas", "cartas_cota",
+                   "cartas_botas", "cartas_capa", "cartas_calca",
+                   "cartas_elmo",
+                   # a pedra de cada equipamento (16, sql/pedras_void.sql)
+                   "pedra_arma", "pedra_luvas", "pedra_cota", "pedra_botas",
+                   "pedra_capa", "pedra_calca", "pedra_elmo"},
 }
 
 # Colunas OPCIONAIS do user_profiles (perfil do usuario).
@@ -156,6 +178,35 @@ def colunas_salvaveis(supabase: Client, logica: str) -> set:
     return norm
 
 
+# "618.002" e "1.234.567": ponto de MILHAR (como o card mostra os numeros)
+_MILHAR = re.compile(r"^[+-]?[0-9]{1,3}(\.[0-9]{3})+$")
+
+
+def decimal_2(valor):
+    """'35,25' / '35.25' / '35,256%' / 35.256 -> 35.25 (ate 2 casas,
+    CORTANDO). Aceita ponto de milhar junto com virgula ('1.250,5').
+    Devolve None se nao for numero; negativo vira 0."""
+    from decimal import Decimal, InvalidOperation, ROUND_DOWN
+    if valor is None or isinstance(valor, bool):
+        return None
+    if isinstance(valor, (int, float)):
+        if isinstance(valor, float) and math.isnan(valor):
+            return None
+        texto = repr(valor) if isinstance(valor, float) else str(valor)
+    else:
+        texto = str(valor).strip().replace(" ", "").replace("%", "")
+        if "," in texto:
+            texto = texto.replace(".", "").replace(",", ".")
+    try:
+        numero = Decimal(texto)
+    except InvalidOperation:
+        return None
+    if not numero.is_finite():
+        return None
+    numero = numero.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+    return max(0.0, float(numero))
+
+
 def _bool(valor) -> bool:
     """Converte rotulos da planilha/banco em booleano real."""
     if isinstance(valor, bool):
@@ -188,6 +239,7 @@ def _limpar(dados: dict, tabela: str, extras=()) -> dict:
     bools = {normalizar(c) for c in
              (BOOLEANAS.get(tabela, set()) | EXTRAS_BOOLEANAS.get(tabela, set()))}
     inteiras = {normalizar(c) for c in INTEIRAS.get(tabela, set())}
+    decimais = {normalizar(c) for c in DECIMAIS.get(tabela, set())}
 
     saida = {}
     for chave, valor in dados.items():
@@ -202,10 +254,20 @@ def _limpar(dados: dict, tabela: str, extras=()) -> dict:
             continue
         if col in bools:
             saida[nome_real[col]] = False if vazio else _bool(valor)
+        elif col in decimais:
+            numero = (0.0 if vazio or str(valor).strip() == ""
+                      else decimal_2(valor))
+            if numero is None:
+                raise ValueError(
+                    f"'{valor}' nao e um numero valido para '{chave}'.")
+            saida[nome_real[col]] = numero
         elif col in inteiras:
             if vazio:
                 saida[nome_real[col]] = 0
             else:
+                texto = str(valor).strip()
+                if _MILHAR.match(texto):        # "618.002" -> 618002
+                    valor = texto.replace(".", "")
                 try:
                     saida[nome_real[col]] = int(float(valor))
                 except (TypeError, ValueError):
@@ -786,16 +848,21 @@ def carregar_historico(supabase: Client):
         return (supabase.table("user_historico_semanal").select(selecao)
                 .order("semana").execute())
 
+    # colunas que dependem de um SQL que pode nao ter sido rodado: se o
+    # banco disser que uma delas nao existe, busca de novo sem ela
+    opcionais = ["nivel_chaser", "colecao_cartas"]
     try:
-        try:
-            resp = buscar(colunas + ",nivel_chaser")
-        except Exception as erro:
-            # o SQL do Level Chaser ainda nao foi rodado: segue sem ele
-            # (a mensagem cita a tabela, por isso o teste da COLUNA vem antes)
-            if not ("nivel_chaser" in str(erro).lower()
-                    and coluna_ausente(erro)):
-                raise
-            resp = buscar(colunas)
+        while True:
+            try:
+                resp = buscar(",".join([colunas] + opcionais))
+                break
+            except Exception as erro:
+                # (a mensagem cita a tabela, por isso o teste da COLUNA)
+                texto = str(erro).lower()
+                ausente = next((c for c in opcionais if c in texto), None)
+                if ausente is None or not coluna_ausente(erro):
+                    raise
+                opcionais.remove(ausente)
         return list(getattr(resp, "data", None) or []), True
     except Exception as erro:
         if _tabela_ausente(erro):

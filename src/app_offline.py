@@ -105,6 +105,7 @@ class OfflineMixin:
                                              self.missao_rapida))
         self.ultimo_personagem_missao = perfil.get("missao_rapida_personagem")
         self._ler_nivel_chaser()
+        self._ler_colecao_cartas()
         self._atualizar_cards()
         try:
             self._desenhar_perfil()
