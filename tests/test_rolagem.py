@@ -30,19 +30,6 @@ def test_sobe_e_desce():
     assert 0 < r.proximo_passo(300, 0, 0.016) < 300
 
 
-@pytest.fixture(scope="module")
-def raiz():
-    """UMA janela Tk para o arquivo: criar varios tk.Tk() seguidos no
-    mesmo processo as vezes falha no Python do Anaconda ("Can't find a
-    usable tk.tcl")."""
-    try:
-        janela = tk.Tk()
-    except tk.TclError as erro:
-        pytest.skip(f"sem tela para o Tk: {erro}")
-    janela.geometry("400x500+0+0")
-    yield janela
-    janela.destroy()
-
 
 @pytest.fixture
 def canvas(raiz):

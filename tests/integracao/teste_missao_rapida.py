@@ -34,6 +34,16 @@ from card_personagem import DUNGEONS
 from janela_missao_rapida import JanelaMissaoRapida
 
 
+def _responder_andar(app, andar="1F"):
+    """Marcar um Void abre a pergunta dos andares (item 17): responde."""
+    from janela_andares import JanelaAndares
+    app.update()
+    for janela in [w for w in app.winfo_children()
+                   if isinstance(w, JanelaAndares) and w.winfo_exists()]:
+        janela.escolher(andar)
+        app.update()
+
+
 def _janelas(app):
     return [w for w in app.winfo_children() if isinstance(w, ctk.CTkToplevel)]
 
@@ -86,6 +96,10 @@ def main(argv):
     nomes = [str(n) for n in app.dfs["Geral"]["Nome"].tolist()]
     alvo = nomes[0]
 
+    # o Void soma no contador (item 17): guarda para restaurar no fim
+    contadores = {chave: app.contador_void(alvo, chave)[1]
+                  for chave in ("void123", "void4")}
+
     def estado(nome, chave):
         """Estado da missao (True = feita) — usa o proprio metodo do app."""
         return app._missoes_do_personagem(nome).get(chave)
@@ -116,6 +130,7 @@ def main(argv):
     print(f"   originais: {originais}")
     for chave in chaves:
         painel._alternar(chave)
+        _responder_andar(app)
     print(f"   pendentes: {painel.pendentes}")
     if len(painel.pendentes) != 3:
         print("   FALHOU: as missoes nao ficaram pendentes")
@@ -196,7 +211,7 @@ def main(argv):
     _fechar_painel(app)
     antes = estado(alvo, chaves[0])
     app.alternar_missao_rapida(chaves[0], alvo)
-    app.update()
+    _responder_andar(app)
     depois = estado(alvo, chaves[0])
     print(f"   {chaves[0]}: {antes} -> {depois}")
     if antes == depois:
@@ -306,9 +321,24 @@ def main(argv):
     # --- 11) restaura os valores originais ------------------------------
     print("\n10) restaurando os valores originais:")
     app.marcar_missoes(alvo, dict(originais))
-    app.update()
-    time.sleep(0.3)
-    app.update()
+    # e os contadores do Void (marcar o Void soma; item 17)
+    from opcoes import coluna_banco
+    from dados_app import VOID_CONTADOR
+    geral = app.dfs["Geral"]
+    for chave, valor in contadores.items():
+        coluna = next(c for c in geral.columns
+                      if coluna_banco(c) == coluna_banco(VOID_CONTADOR[chave][0]))
+        geral.loc[geral["Nome"].astype(str) == str(alvo), coluna] = valor
+    app._marcar_modificado()
+    app.salvar_supabase()
+    for _ in range(200):
+        app.update()
+        time.sleep(0.05)
+        if not app._salvando:
+            break
+    if {c: app.contador_void(alvo, c)[1] for c in contadores} != contadores:
+        print("   FALHOU: nao restaurou os contadores do Void")
+        return 1
     for chave, valor in originais.items():
         if estado(alvo, chave) != valor:
             print(f"   FALHOU: nao restaurou {chave}")

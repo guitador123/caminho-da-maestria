@@ -39,6 +39,7 @@ SCRIPTS = [
     "teste_colecao_cartas.py",
     "teste_colar.py",
     "teste_cartas_void.py",
+    "teste_void_andares.py",
     "teste_missao_rapida.py",
     "teste_filtros.py",
     "teste_filtro_ao_vivo.py",

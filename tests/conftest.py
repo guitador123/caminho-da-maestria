@@ -4,6 +4,9 @@
   la o app_grandchase.py e so o atalho).
 - Os logs (registro.py e atualizacao.py) vao para uma pasta temporaria,
   para os testes nao sujarem o log real.
+- `raiz`: UMA janela Tk para a suite inteira. Criar varios tk.Tk() no
+  mesmo processo as vezes falha no Python do Anaconda ("Can't find a
+  usable tk.tcl"); os testes de canvas usam esta e destroem so o que criam.
 """
 
 import os
@@ -27,3 +30,15 @@ def _logs_temporarios(tmp_path, monkeypatch):
     monkeypatch.setattr(atualizacao, "LOG",
                         str(tmp_path / "log_atualizacao.log"))
     yield
+
+
+@pytest.fixture(scope="session")
+def raiz():
+    import tkinter as tk
+    try:
+        janela = tk.Tk()
+    except tk.TclError as erro:
+        pytest.skip(f"sem tela para o Tk: {erro}")
+    janela.geometry("400x500+0+0")
+    yield janela
+    janela.destroy()

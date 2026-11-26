@@ -404,3 +404,50 @@ def status_forte(peca, status):
     +800, 10%, 20%...). O card marca com um pontinho no chip."""
     opcoes = PEDRAS_VOID.get(peca, [])
     return bool(opcoes) and status == opcoes[-1]
+
+
+# ------------------------------------- Void na Missao Rapida (item 17) --
+# Marcar o Void na Missao Rapida pergunta quantos andares (1F, 2F, 3F) e
+# soma no contador do personagem. O andar fica guardado com a SEMANA
+# ("3F|2026-11-25") para desmarcar desfazer a soma; de outra semana, nao
+# desfaz (o reset de quarta ja zerou a dungeon).
+ANDARES_VOID = {"1F": 4, "2F": 8, "3F": 10}
+# dungeon (chave do app) -> (coluna do contador no banco, rotulo)
+VOID_CONTADOR = {
+    "void123": ("vazio_uni", "Void Unificado"),
+    "void4": ("vazio_apo", "Void Apocalipse"),
+}
+
+
+def coluna_andar(chave):
+    """'void123' -> 'void123_andar' (a coluna do banco, em user_semanais)."""
+    return f"{chave}_andar"
+
+
+def marca_andar(andar, semana):
+    """('3F', date(2026, 11, 25)) -> '3F|2026-11-25'."""
+    if andar not in ANDARES_VOID:
+        raise ValueError(f"andar invalido: {andar!r}")
+    return f"{andar}|{semana.isoformat() if hasattr(semana, 'isoformat') else semana}"
+
+
+def andar_da_semana(valor, semana):
+    """O andar guardado, se for DESTA semana ('3F'); senao None."""
+    if not isinstance(valor, str) or "|" not in valor:
+        return None
+    andar, data = valor.split("|", 1)
+    atual = semana.isoformat() if hasattr(semana, "isoformat") else str(semana)
+    if andar.strip() in ANDARES_VOID and data.strip() == atual:
+        return andar.strip()
+    return None
+
+
+def novo_contador(atual, andar=None, desfazer=None):
+    """O contador depois de marcar `andar` (soma) ou desmarcar com o
+    `desfazer` guardado (subtrai, sem ficar negativo)."""
+    valor = max(0, _num(atual))
+    if andar:
+        valor += ANDARES_VOID[andar]
+    if desfazer:
+        valor = max(0, valor - ANDARES_VOID[desfazer])
+    return valor

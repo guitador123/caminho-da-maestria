@@ -119,6 +119,9 @@ ROTULOS_COLUNAS = {
     "pedracapa": "Pedra Capa",
     "pedracalca": "Pedra Calça",
     "pedraelmo": "Pedra Elmo",
+    # o andar do Void marcado pela Missao Rapida (17)
+    "void123andar": "Void (1, 2 e 3) Andar",
+    "void4andar": "Void 4 Andar",
 }
 
 BASE_DIR = caminhos.app_dir()

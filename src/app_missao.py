@@ -11,8 +11,13 @@ import tema_visual as tv
 import tkinter as tk
 from PIL import ImageTk
 from card_personagem import DUNGEONS as DUNGEONS_CARD
-from config_app import ABA_SEMANAIS, MODO_MISSAO_CARD, MODO_MISSAO_JANELA
-from dados_app import _coluna_dungeon_semanal, _colunas_conhecidas, _verdadeiro
+from config_app import (ABA_GERAL, ABA_SEMANAIS, MODO_MISSAO_CARD,
+                        MODO_MISSAO_JANELA, ROTULOS_COLUNAS)
+from dados_app import (_coluna_dungeon_semanal, _colunas_conhecidas,
+                       _verdadeiro, VOID_CONTADOR, andar_da_semana,
+                       coluna_andar, marca_andar, novo_contador)
+from historico import ultimo_reset
+from opcoes import coluna_banco
 from registro import falha
 from tkinter import messagebox
 
@@ -72,11 +77,80 @@ class MissaoMixin:
             estado[chave] = _verdadeiro(linha.get(coluna))
         return estado
 
-    def marcar_missoes(self, nome, missoes):
+    # ------------------------------ Void: andares 1F/2F/3F (item 17) -----
+    def _coluna_por_banco(self, df, nome_banco, criar=False, padrao=""):
+        """A coluna do dataframe para a coluna do banco (cria se faltar)."""
+        alvo = coluna_banco(nome_banco)
+        for coluna in df.columns:
+            if coluna_banco(coluna) == alvo:
+                return coluna
+        if not criar:
+            return None
+        coluna = ROTULOS_COLUNAS.get(alvo, nome_banco)
+        df[coluna] = padrao
+        return coluna
+
+    def contador_void(self, nome, chave):
+        """(rotulo, valor atual) do contador que o Void soma ("Void
+        Unificado", 20)."""
+        coluna_banco_, rotulo = VOID_CONTADOR[chave]
+        df = self.dfs.get(ABA_GERAL)
+        if df is None or df.empty or "Nome" not in df.columns:
+            return rotulo, 0
+        coluna = self._coluna_por_banco(df, coluna_banco_)
+        linhas = df.loc[df["Nome"].astype(str) == str(nome)]
+        if coluna is None or linhas.empty:
+            return rotulo, 0
+        return rotulo, novo_contador(linhas.iloc[0][coluna])
+
+    def _aplicar_void(self, nome, chave, feito, andar=None):
+        """Soma (marcou com `andar`) ou desfaz (desmarcou) no contador do
+        personagem. Devolve o texto para a barra de status ("" = nada)."""
+        if chave not in VOID_CONTADOR:
+            return ""
+        geral = self.dfs.get(ABA_GERAL)
+        semanais = self.dfs.get(ABA_SEMANAIS)
+        if geral is None or semanais is None or "Nome" not in geral.columns:
+            return ""
+        coluna_banco_, rotulo = VOID_CONTADOR[chave]
+        mascara_g = geral["Nome"].astype(str) == str(nome)
+        mascara_s = semanais["Nome"].astype(str) == str(nome)
+        contador = self._coluna_por_banco(geral, coluna_banco_)
+        if contador is None or not mascara_g.any() or not mascara_s.any():
+            return ""
+        coluna_marca = self._coluna_por_banco(semanais, coluna_andar(chave),
+                                              criar=True)
+        if semanais[coluna_marca].dtype != object:
+            semanais[coluna_marca] = semanais[coluna_marca].astype(object)
+        semana = ultimo_reset()
+        antes = novo_contador(geral.loc[mascara_g, contador].iloc[0])
+        if feito:
+            if not andar:
+                return ""
+            depois = novo_contador(antes, andar)
+            semanais.loc[mascara_s, coluna_marca] = marca_andar(andar, semana)
+            texto = f"{rotulo} {antes} → {depois} ({andar})"
+        else:
+            guardado = andar_da_semana(
+                semanais.loc[mascara_s, coluna_marca].iloc[0], semana)
+            semanais.loc[mascara_s, coluna_marca] = ""
+            if not guardado:
+                return ""             # nada desta semana para desfazer
+            depois = novo_contador(antes, desfazer=guardado)
+            texto = f"{rotulo} {antes} → {depois} (desfeito o {guardado})"
+        geral.loc[mascara_g, contador] = depois
+        return texto
+
+    def marcar_missoes(self, nome, missoes, andares=None):
         """Marca/desmarca varias missoes semanais de um personagem.
 
-        Tudo em UMA gravacao (o app ja salva em 2o plano).
+        Tudo em UMA gravacao (o app ja salva em 2o plano). `andares`
+        ({"void123": "3F"}) soma no Void Unificado/Apocalipse; desmarcar
+        um Void desfaz a soma desta semana (item 17).
         """
+        andares = andares or {}
+        estado_antes = self._missoes_do_personagem(nome)
+        avisos = []
         df = self.dfs.get(ABA_SEMANAIS)
         if df is None or df.empty or "Nome" not in df.columns:
             return False
@@ -90,8 +164,14 @@ class MissaoMixin:
                 continue
             df.loc[mask, coluna] = "Verdadeiro" if feito else "Falso"
             alteradas += 1
+            if bool(feito) != bool(estado_antes.get(chave)):
+                aviso = self._aplicar_void(nome, chave, feito,
+                                           andares.get(chave))
+                if aviso:
+                    avisos.append(aviso)
         if not alteradas:
             return False
+        self._ultimo_aviso_void = " | ".join(avisos)
         self._atualizar_card(str(nome))
         self._atualizar_cards()
         self._marcar_modificado()
@@ -118,14 +198,40 @@ class MissaoMixin:
             return False
         atual = _verdadeiro(df.loc[mask, coluna].iloc[0])
         novo = not atual
+        if novo and chave in VOID_CONTADOR:
+            # o Void pergunta os andares; marca so depois da resposta
+            self._perguntar_andares(
+                nome, chave,
+                lambda andar: self._marcar_no_card(nome, chave, True, andar))
+            return True
+        self._marcar_no_card(nome, chave, novo)
+        return True
+
+    def _perguntar_andares(self, nome, chave, ao_escolher):
+        """Abre a pergunta 1F/2F/3F do Void (cancelar nao faz nada)."""
+        from janela_andares import JanelaAndares
+        rotulo = dict(DUNGEONS_CARD).get(chave, chave)
+        _contador, atual = self.contador_void(nome, chave)
+        return JanelaAndares(self, nome, chave, rotulo, atual, ao_escolher)
+
+    def _marcar_no_card(self, nome, chave, novo, andar=None):
+        """Marca/desmarca a missao (modo card) e salva na hora; o Void soma
+        ou desfaz no contador."""
+        df = self.dfs.get(ABA_SEMANAIS)
+        coluna = self._coluna_missao(chave)
+        if df is None or coluna is None:
+            return False
+        mask = df["Nome"].astype(str) == str(nome)
         df.loc[mask, coluna] = "Verdadeiro" if novo else "Falso"
+        aviso = self._aplicar_void(nome, chave, novo, andar)
         self._atualizar_card(str(nome))
         self._atualizar_cards()
         self._marcar_modificado()
         if self.usar_supabase:
             self.salvar_supabase()
         rotulo = dict(DUNGEONS_CARD).get(chave, chave)
-        self.status(f"{nome}: {rotulo} {'MARCADA' if novo else 'desmarcada'}")
+        self.status(f"{nome}: {rotulo} {'MARCADA' if novo else 'desmarcada'}"
+                    + (f" | {aviso}" if aviso else ""))
         return True
 
     def alternar_missao(self):

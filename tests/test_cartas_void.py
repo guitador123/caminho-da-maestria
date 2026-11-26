@@ -11,6 +11,7 @@ from dados_app import (CARTA_OUTRA, CARTAS_VOID, PECAS_COM_CARTAS,
 from opcoes import coluna_banco
 
 
+
 def test_os_7_equipamentos_e_nao_os_acessorios():
     assert set(PECAS_COM_CARTAS) == {"arma", "luvas", "cota", "botas",
                                      "capa", "calca", "elmo"}
@@ -168,15 +169,11 @@ def test_status_mais_forte_ganha_o_pontinho(peca, status, forte):
     assert status_forte(peca, status) is forte
 
 
-def test_pontinho_aparece_so_no_status_forte():
+def test_pontinho_aparece_so_no_status_forte(raiz):
     import tkinter as tk
     from card_personagem import CardPersonagem
+    canvas = tk.Canvas(raiz)
     try:
-        raiz = tk.Tk()
-    except tk.TclError as erro:
-        pytest.skip(f"sem tela para o Tk: {erro}")
-    try:
-        canvas = tk.Canvas(raiz)
         card = CardPersonagem(canvas, 0, 0, {"nome": "Ai", "pecas": {
             "pedraarma": "18|10% Dano Crítico",            # forte
             "pedraluvas": "18|15% Dano no fatal"}})        # fraco
@@ -187,21 +184,17 @@ def test_pontinho_aparece_so_no_status_forte():
         assert len(ovais("arma")) == 1
         assert ovais("luvas") == []
     finally:
-        raiz.destroy()
+        canvas.destroy()
 
 
-def test_card_redesenhado_cresce_e_o_rodape_fica_dentro():
+def test_card_redesenhado_cresce_e_o_rodape_fica_dentro(raiz):
     """Bug: depois de escolher um acessorio (ex.: o Colar), o card era
     redesenhado com a altura ANTIGA e o rodape (Libertacao e a seta)
     ficava fora do fundo do card."""
     import tkinter as tk
     from card_personagem import CardPersonagem
+    canvas = tk.Canvas(raiz)
     try:
-        raiz = tk.Tk()
-    except tk.TclError as erro:
-        pytest.skip(f"sem tela para o Tk: {erro}")
-    try:
-        canvas = tk.Canvas(raiz)
         card = CardPersonagem(canvas, 0, 0, {"nome": "Ai", "libertacao": "FALSO"})
         antes = card.altura
         card.atualizar({"nome": "Ai", "libertacao": "FALSO", "acessorios": {
@@ -214,21 +207,17 @@ def test_card_redesenhado_cresce_e_o_rodape_fica_dentro():
         assert mais_baixo <= fundo[3]
         assert fundo[3] - fundo[1] >= card.altura - 1
     finally:
-        raiz.destroy()
+        canvas.destroy()
 
 
-def test_mover_o_card_nao_estica_o_pontinho_da_pedra():
+def test_mover_o_card_nao_estica_o_pontinho_da_pedra(raiz):
     """Bug (1.3.1): ao filtrar/reordenar, o card e MOVIDO sem redesenhar e
     so o 1o ponto de cada item andava. O pontinho (oval de 2 cantos)
     esticava e virava arcos brancos gigantes atravessando a tela."""
     import tkinter as tk
     from card_personagem import CardPersonagem
+    canvas = tk.Canvas(raiz)
     try:
-        raiz = tk.Tk()
-    except tk.TclError as erro:
-        pytest.skip(f"sem tela para o Tk: {erro}")
-    try:
-        canvas = tk.Canvas(raiz)
         card = CardPersonagem(canvas, 0, 0, {"nome": "Ai", "pecas": {
             "pedraarma": "18|10% Dano Crítico"}})
         antes = {i: canvas.coords(i) for i in card._itens}
@@ -244,4 +233,4 @@ def test_mover_o_card_nao_estica_o_pontinho_da_pedra():
         x1, y1, x2, y2 = canvas.coords(oval)
         assert x2 - x1 < 20 and y2 - y1 < 20         # continua um pontinho
     finally:
-        raiz.destroy()
+        canvas.destroy()

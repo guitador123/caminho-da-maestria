@@ -194,6 +194,15 @@ Ideia de 24/11 (entra na 1.3.0, junto com o item 15). Escolhida a opção A.
 - [x] Edição rápida (a mesma das cartas, agora "Pedra e cartas"): nível e status no topo. **O status é obrigatório junto do nível**: com só um dos dois, aparece o aviso e a janela não troca de peça nem fecha (ou completa, ou volta os dois para "–")
 - [x] Testes: `tests/test_cartas_void.py` e `tests/integracao/teste_cartas_void.py`
 
+### 17. Void na Missão Rápida: quantos andares (1F, 2F, 3F) ✅ (`sql/void_andares.sql` aplicado em 26/11)
+Ideia de 26/11. Escolhido: **A (janelinha de confirmação) + 1 (desmarcar desfaz)**; no painel a soma só entra no "Salvar".
+- [x] Marcar "Void (1, 2 e 3)" ou "Void 4" na Missão Rápida abre a pergunta (`src/janela_andares.py`): 1F/2F/3F com quanto soma, e o antes → depois ao passar o mouse ("Void Unificado: 20 → 30"). Teclas 1, 2, 3; Esc cancela (não marca nada)
+- [x] Soma no contador do personagem: Void (1, 2 e 3) → Void Unificado e Void 4 → Void Apocalipse: 1F +4 · 2F +8 · 3F +10
+- [x] **Modo card:** marca, soma e salva na hora. **Modo painel:** o botão mostra "✓ Void 4 · 2F +8" e a soma só entra ao apertar "Salvar"
+- [x] **Desmarcar desfaz** a soma desta semana. O andar fica guardado com a semana (`void123_andar` = "3F|2026-11-25" em `user_semanais`): marca de semana passada é ignorada, por isso a função do reset de quarta não precisou mudar. O contador nunca fica negativo
+- [x] Testes: `tests/test_void_andares.py` (regra e a lógica do app) e `tests/integracao/teste_void_andares.py` (os dois modos, Esc, desfazer, banco)
+- [x] No caminho: os testes de canvas usam UMA janela Tk para a suíte inteira (`conftest.py`); com várias, o Tk do Anaconda às vezes falhava e o teste era pulado
+
 ### 13. Histórico de evolução ✅
 - [x] **Banco** (`sql/historico_semanal.sql`): o reset de quarta 03h tira uma "foto" de cada personagem ANTES de zerar (Ataque Total, as 12 peças do Void e os 7 desafios da semana) em `user_historico_semanal`. Só o dono lê (RLS); só a função do reset grava. Se a foto falhar, o reset continua
 - [x] **1ª foto conferida (25/11):** o reset de quarta 03h gravou a semana 2026-11-25 com `nivel_chaser` e `colecao_cartas` (a função atualizada pelo `sql/colecao_cartas.sql` está valendo); a Evolução abriu sozinha no 1º login

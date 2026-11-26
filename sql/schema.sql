@@ -335,6 +335,8 @@ create table if not exists public.user_semanais (
   void_4 boolean default false,
   caminho_abissal boolean default false,
   terra_do_julgamento boolean default false,
+  void123_andar text default '',
+  void4_andar text default '',
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
   constraint user_semanais_pkey PRIMARY KEY (id)
 );

@@ -118,6 +118,9 @@ ALIASES[normalizar("Acerto Crítico %")] = "critico"
 ALIASES[normalizar("Dano Crítico %")] = "dano_critico"
 ALIASES[normalizar("Dano nas Costas %")] = "dano_costas"
 
+# O andar do Void (17): "Void (1, 2 e 3) Andar" -> "void123_andar"
+ALIASES[normalizar("Void (1, 2 e 3) Andar")] = "void123_andar"
+
 # Coleção de cartas (15.4): "Coleção de Cartas" -> "colecao_cartas"
 ALIASES[normalizar("Coleção de Cartas")] = "colecao_cartas"
 

@@ -21,6 +21,7 @@ import caminhos
 from registro import falha
 
 from card_personagem import DUNGEONS
+from dados_app import ANDARES_VOID, VOID_CONTADOR
 
 CORES = {
     "fundo": "#141221",
@@ -52,6 +53,9 @@ class JanelaMissaoRapida(ctk.CTkToplevel):
         self.transient(app)
 
         self.pendentes = {}      # chave -> True/False (o que mudou)
+        # o andar escolhido de cada Void marcado (item 17): so soma no
+        # contador quando apertar "Salvar"
+        self.andares = {}        # chave -> "1F" / "2F" / "3F"
         self.salvo = {}           # chave -> bool (estado no banco)
         self.personagem = None
         self._botoes_missao = {}
@@ -188,6 +192,7 @@ class JanelaMissaoRapida(ctk.CTkToplevel):
         self.personagem = nome
         self.salvo = self.app._missoes_do_personagem(nome)
         self.pendentes = {}
+        self.andares = {}
         self.info.configure(text=f"{nome} — clique para marcar/desmarcar")
         self._atualizar_botoes()
         self._filtrar()
@@ -204,8 +209,21 @@ class JanelaMissaoRapida(ctk.CTkToplevel):
             return
         atual = self._estado(chave)
         novo = not atual
+        if novo and chave in VOID_CONTADOR:
+            # o Void pergunta os andares; a soma entra so no "Salvar"
+            self.app._perguntar_andares(
+                self.personagem, chave,
+                lambda andar, c=chave: self._marcar_void(c, andar))
+            return
         self.pendentes[chave] = novo
+        self.andares.pop(chave, None)
         self._atualizar_botoes()
+
+    def _marcar_void(self, chave, andar):
+        self.pendentes[chave] = True
+        self.andares[chave] = andar
+        self._atualizar_botoes()
+        self._focar()
 
     def _atualizar_botoes(self):
         for chave, botao in self._botoes_missao.items():
@@ -221,6 +239,9 @@ class JanelaMissaoRapida(ctk.CTkToplevel):
                 botao.configure(fg_color=CORES["painel"], text_color=CORES["suave"],
                                 border_color=CORES["painel_borda"])
             rotulo = dict(MISSOES).get(chave, chave)
+            if pendente and chave in self.andares:
+                andar = self.andares[chave]
+                rotulo += f"  ·  {andar} +{ANDARES_VOID[andar]}"
             botao.configure(text=("✓ " if feito else "") + f"{rotulo}")
 
         if self.pendentes:
@@ -235,14 +256,17 @@ class JanelaMissaoRapida(ctk.CTkToplevel):
             self.destroy()
             return
         missoes = dict(self.pendentes)
-        ok = self.app.marcar_missoes(self.personagem, missoes)
+        ok = self.app.marcar_missoes(self.personagem, missoes,
+                                     andares=dict(self.andares))
         if ok:
             self.app._lembrar_personagem_missao(self.personagem)
             self.salvo = self.app._missoes_do_personagem(self.personagem)
             self.pendentes = {}
+            self.andares = {}
             self._atualizar_botoes()
+            aviso = getattr(self.app, "_ultimo_aviso_void", "")
             self.app.status(f"{self.personagem}: {len(missoes)} missao(oes) "
-                            f"gravada(s).")
+                            f"gravada(s)." + (f" | {aviso}" if aviso else ""))
         self.destroy()
 
     def _focar(self):

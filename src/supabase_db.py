@@ -97,7 +97,10 @@ TORRE_SEMANAL = "torre_das_ilusoes_semanal"
 # Colunas OPCIONAIS: so existem no banco se o usuario rodar o SQL do HANDOFF.
 # Verificadas uma vez por sessao (cache no proprio client).
 EXTRAS_OPCIONAIS = {
-    "semanais": {"torre_das_ilusoes", TORRE_SEMANAL},
+    "semanais": {"torre_das_ilusoes", TORRE_SEMANAL,
+                 # o andar do Void marcado pela Missao Rapida (17,
+                 # sql/void_andares.sql)
+                 "void123_andar", "void4_andar"},
     # nivel do chaser (pendencia #3): um valor por conta, gravado em todas
     # as linhas de user_characters. So e enviado se a coluna existir.
     "personagens": {"nivel_chaser",
