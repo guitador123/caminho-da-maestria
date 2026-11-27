@@ -134,7 +134,18 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 
 ### 12. Visão da guilda
 - [ ] Ranking ou painel com o progresso semanal de todos (leitura entre membros via RLS)
-- [ ] Destaque de quem ainda não fez as dungeons da semana
+- [ ] **Ranking no Discord, atualizando sozinho** (plano de 27/11; implementar junto com a visão da guilda):
+  - Uma mensagem FIXA no canal, editada a cada atualização (nunca uma mensagem nova): ranking em embed, por exemplo "🥇 Ai · 1.203.651 · 7/7 dungeons"
+  - Via webhook do canal (Editar canal → Integrações → Webhooks); o ID da mensagem fica guardado para editar sempre a mesma
+  - **Roda no servidor, nunca no app:** uma Edge Function do Supabase monta o ranking do banco e edita a mensagem. A URL do webhook fica como segredo no Supabase (se fosse no `.exe`, qualquer um poderia tirar e mandar spam no canal)
+  - Disparo recomendado: pg_cron a cada 2 a 5 minutos (simples e nunca passa do limite do Discord). Alternativa: na hora em que alguém salva (instantâneo, mas precisa juntar edições seguidas para não esbarrar no limite)
+  - Depois, se quiserem comandos (`/ranking`, `/quem-falta`, `/perfil Ai`) ou o ranking como imagem (no estilo da página Evolução): um bot em Python (discord.py) hospedado 24h (Railway, Fly.io ou um PC ligado)
+- [x] **HUB da guilda** ✅ (`sql/guilda.sql` aplicado em 27/11): a guia Guilda mostra o perfil de **todas as contas do app** (sem opção de ficar de fora) numa grade de mini-perfis (opção A: foto, Lv., nick, coleção, Ataque médio, barra de EXP, distintivo), em ordem de **Level Chaser**; empate: **Ataque Total médio**. Top 3 com borda e selo de ouro, prata e bronze; a sua conta com o selo "VOCÊ"
+- [x] Clicar num perfil abre a conta da pessoa **só para ver** (`PaginaConta`): faixa "Vendo a conta de X · somente leitura" + "Voltar para a Guilda", o perfil e os cards de verdade (balões funcionam; nada abre edição nem salva). Clicar no seu perfil leva para a Maestria
+- [x] Segurança: as tabelas continuam fechadas (cada um vê e grava só o seu). A leitura entre contas passa por 2 funções do banco que só leem (`perfis_da_guilda`, `conta_da_guilda`), precisam de login e não devolvem username/e-mail
+- [x] Testes: `tests/test_guilda.py` e `tests/integracao/teste_guilda.py` (ordem, anon recusado, gravar na conta de outra pessoa não muda nada, tela)
+- [x] **Navegação no topo:** feita (item 18). A guia "Guilda" já existe, por enquanto com o "Em breve"
+- Decidir antes (valem para o app e para o Discord): quem é "da guilda" (todas as contas ou só com código de convite: com o Discord público, o código evita estranhos na lista); o que aparece (Ataque Total, soma, dungeons, Level Chaser, coleção...); se dá para ficar de fora; a ordem e o desempate
 
 ### 15. Mais informações no card do personagem ✅
 Ideias de 24/11. Opções escolhidas: **A em todos** (maquetes mostradas na conversa).
@@ -202,6 +213,26 @@ Ideia de 26/11. Escolhido: **A (janelinha de confirmação) + 1 (desmarcar desfa
 - [x] **Desmarcar desfaz** a soma desta semana. O andar fica guardado com a semana (`void123_andar` = "3F|2026-11-25" em `user_semanais`): marca de semana passada é ignorada, por isso a função do reset de quarta não precisou mudar. O contador nunca fica negativo
 - [x] Testes: `tests/test_void_andares.py` (regra e a lógica do app) e `tests/integracao/teste_void_andares.py` (os dois modos, Esc, desfazer, banco)
 - [x] No caminho: os testes de canvas usam UMA janela Tk para a suíte inteira (`conftest.py`); com várias, o Tk do Anaconda às vezes falhava e o teste era pulado
+
+### 18. Guias no topo: Maestria, Guilda e Evolução ✅
+Ideia de 27/11; escolhida a opção C (pílula de vidro).
+- [x] Barra centralizada no topo (`src/paginas.py`, `BarraAbas`): trilho de vidro escuro e a guia ativa preenchida de roxo (como o botão "Apoiar"); passar o mouse clareia a guia. Fica **fixa no topo** enquanto a página rola e sempre por cima dos cards
+- [x] Guias: **Maestria** (a tela principal, que antes não tinha nome de guia), **Guilda** e **Evolução**. A lista `ABAS` cresce com mais guias
+- [x] Guilda e Evolução são páginas por cima da Maestria, com a mesma arte de fundo (`PaginaGuilda`, `PaginaEvolucao`). Voltar para a Maestria (guia ou **Esc**) mantém a rolagem e os filtros como estavam
+- [x] **Evolução virou guia:** o 9º cartão ("EVOLUÇÃO SEMANAL") saiu da grade (agora são 8) e a janela separada (`janela_evolucao.py`) foi removida. A guia abre na hora com o histórico que já tem e atualiza do banco em segundo plano; "Copiar imagem" e "Salvar PNG" estão no topo da página; no 1º login depois do reset ela abre sozinha
+- [x] Guilda: começou com um "Em breve"; virou o HUB da guilda (item 12)
+- [x] Testes: `tests/test_paginas.py`, `tests/integracao/teste_guias.py` (cliques de verdade, Esc, rolagem, 2 resoluções) e `tests/integracao/teste_evolucao.py` reescrito para a guia
+
+### 19. Guia "Ranking" ✅ (`sql/ranking.sql` aplicado em 27/11)
+Ideia de 27/11. Escolhidos: pódio grande que troca de categoria (A) com a lista de TODAS as contas embaixo, e o seletor de personagens com placar (B).
+- [x] Nova guia "Ranking" na barra do topo (Maestria · Guilda · Ranking · Evolução)
+- [x] **Pódios** (`PaginaRanking`): 5 categorias em botões; o pódio tem degraus de ouro, prata e bronze que **sobem animados** ao trocar, a foto de cada um (com anel da medalha) e uma coroa no 1º. Embaixo, a **lista de todas as contas** naquela categoria, com barras; a sua linha destacada. Categorias:
+  - Mais personagens fortes = de quantos personagens a conta é a 1ª no Ataque Total
+  - Level Chaser · Coleção de cartas · Dungeons (**sempre a semana atual**) · Ataque Total médio
+  - Empate nos pódios: Ataque Total médio
+- [x] **Personagens:** os 25 retratos (o escolhido em roxo; borda dourada onde o campeão é você) e o placar completo do escolhido: arte grande, campeão, e cada conta com Ataque Total (barra), Soma, Ataque, Ataque Especial, % Crítico e % Dano Crítico. Empate no Ataque Total: a Soma
+- [x] Banco: a função `ranking_da_guilda` só lê (como as da Guilda), exige login e não devolve username/e-mail
+- [x] Testes: `tests/test_ranking.py` e `tests/integracao/teste_ranking.py`
 
 ### 13. Histórico de evolução ✅
 - [x] **Banco** (`sql/historico_semanal.sql`): o reset de quarta 03h tira uma "foto" de cada personagem ANTES de zerar (Ataque Total, as 12 peças do Void e os 7 desafios da semana) em `user_historico_semanal`. Só o dono lê (RLS); só a função do reset grava. Se a foto falhar, o reset continua

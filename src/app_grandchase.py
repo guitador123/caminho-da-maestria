@@ -38,6 +38,7 @@ from app_cartoes import CartoesMixin          # cartoes de estatistica
 from app_atualizacao import AtualizacaoMixin  # botao da versao (atualizar)
 from app_evolucao import EvolucaoMixin        # pagina "Evolucao semanal"
 from app_offline import OfflineMixin          # copia local e sincronia
+from app_paginas import PaginasMixin          # guias: Maestria/Guilda/Evolucao
 from rolagem import RolagemSuave              # roda do mouse suave
 from dados_app import STATUS_PERSONAGEM, _decimal
 
@@ -86,7 +87,7 @@ _registrar = registrar
 
 class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
                     MissaoMixin, CartoesMixin, AtualizacaoMixin,
-                    EvolucaoMixin, OfflineMixin, ctk.CTk):
+                    EvolucaoMixin, OfflineMixin, PaginasMixin, ctk.CTk):
     def __init__(self, user=None, supabase=None, offline=False):
         super().__init__()
         # lido na criacao (os testes ligam app_grandchase.MOSTRAR_TABELA antes)
@@ -160,6 +161,8 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         # === Camada 2: canvas (imagem do cenario + textos) ===============
         self.canvas = tk.Canvas(self, bg="#191334", highlightthickness=0, bd=0)
         self.canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
+        # as guias do topo (Maestria, Guilda, Evolucao)
+        self._iniciar_paginas()
 
         self._construir_widgets()
         self._montar_tela()
@@ -263,6 +266,8 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
         self._desenhar_cards()
         self._posicionar_widgets()
         self._atualizar_cards()
+        # por ultimo: a barra de guias fica por cima de tudo
+        self._desenhar_abas_maestria()
 
     # ------------------------------------------------------------ rolagem --
     def _rolar(self, evento):
@@ -279,14 +284,19 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
                 pass                      # janela ja fechada
             except Exception:
                 falha("fixar o cenario")
+        # a barra de guias tambem fica parada no topo
+        self._elevar_abas()
 
     # ------------------------------------------------------------- cards ---
-    def _dados_personagem(self, nome):
-        """Monta o dicionario de dados de um personagem (vindo do Supabase)."""
-        geral = self.dfs.get(ABA_GERAL)
-        pecas = self.dfs.get(ABA_PECAS)
-        acess = self.dfs.get(ABA_ACESSORIOS)
-        sem = self.dfs.get(ABA_SEMANAIS)
+    def _dados_personagem(self, nome, dfs=None):
+        """Monta o dicionario de dados de um personagem (vindo do Supabase).
+        `dfs`: outras abas (a conta de outra pessoa, na Guilda); sem ele,
+        as da sua conta."""
+        dfs = self.dfs if dfs is None else dfs
+        geral = dfs.get(ABA_GERAL)
+        pecas = dfs.get(ABA_PECAS)
+        acess = dfs.get(ABA_ACESSORIOS)
+        sem = dfs.get(ABA_SEMANAIS)
 
         def _linha(df):
             if df is None or df.empty or "Nome" not in df.columns:
@@ -475,6 +485,8 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
                     # o Ataque Total ou uma dungeon podem ter mudado: refaz
                     # a ordem e o filtro na hora
                     self._reordenar_cards()
+                    # o card redesenhado nasce por cima: a barra volta ao topo
+                    self._elevar_abas()
                     return True
                 except Exception as e:
                     falha("[Personagem] redesenhar o card", e)
@@ -1057,19 +1069,6 @@ class GrandChaseApp(FiltrosMixin, ArquivosMixin, SalvamentoMixin,
                                        12, cor=tv.CORES["suave"], anchor="w")
         self.itens_valores[chave] = (item_valor, item_legenda,
                                      x1 + lay.w(20), y_legenda)
-        if chave == "evolucao":
-            # o cartao inteiro abre a pagina de evolucao
-            hit = self.canvas.create_image(
-                x1, y1, anchor="nw", image=self._foto(tv.retangulo_alfa(
-                    cor=(139, 92, 246), alfa=1,
-                    tamanho=(max(1, int(x2 - x1)), max(1, int(y2 - y1))))))
-            self.canvas.tag_bind(hit, "<Button-1>",
-                                 lambda e: self.abrir_evolucao())
-            self.canvas.tag_bind(hit, "<Enter>",
-                                 lambda e: self.canvas.configure(cursor="hand2"))
-            self.canvas.tag_bind(hit, "<Leave>",
-                                 lambda e: self.canvas.configure(cursor=""))
-            self._atualizar_cartao_evolucao()
 
     def _posicionar_legenda(self, chave, valor):
         """Coloca a legenda ao lado do valor (a largura do valor varia)."""

@@ -130,8 +130,7 @@ CARDS = [
     ("nivel", "N\u00cdVEL DO CHASER", ""),
     ("despertar", "DESPERTAR COMPLETO", "personagens conclu\u00eddos"),
     ("libertacao", "LIBERTA\u00c7\u00c3O COMPLETA", "personagens conclu\u00eddos"),
-    # o 9o cartao abre a pagina de evolucao (app_evolucao.py)
-    ("evolucao", "EVOLU\u00c7\u00c3O SEMANAL", "ver a evolu\u00e7\u00e3o  \u203a"),
+    # (o 9o cartao, "EVOLUCAO SEMANAL", virou a guia Evolucao no topo)
 ]
 
 # posicao do campo/botao do nivel do chaser (dentro do 6o cartao)

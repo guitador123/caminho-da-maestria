@@ -883,3 +883,53 @@ def marcar_resumo_visto(supabase: Client, user_id: str, data) -> bool:
         if not coluna_ausente(erro):
             falha("marcar o resumo semanal como visto", erro)
         return False
+
+
+# ---------------------------------------------------------------------------
+# GUILDA (item 12, sql/guilda.sql): leitura entre contas, SO por funcoes
+# (as tabelas continuam fechadas: cada um ve e grava so o seu)
+# ---------------------------------------------------------------------------
+def perfis_da_guilda(supabase: Client):
+    """Todas as contas do app, em ordem de Level Chaser (desempate: Ataque
+    Total medio). [{user_id, nick, avatar, nivel_chaser, colecao_cartas,
+    ataque_medio, personagens}, ...]"""
+    resp = supabase.rpc("perfis_da_guilda", {}).execute()
+    return list(getattr(resp, "data", None) or [])
+
+
+def conta_da_guilda(supabase: Client, user_id: str) -> dict:
+    """A conta de outra pessoa, SO PARA VER, ja no formato das abas do app:
+    {"perfil": {...}, "personagens": [...], "pecas_void": [...],
+     "acessorios_titulo": [...], "semanais": [...]} (as filhas com "Nome"
+    e os booleanos como na planilha, igual ao carregamento da sua conta)."""
+    resp = supabase.rpc("conta_da_guilda", {"p_user": user_id}).execute()
+    dados = getattr(resp, "data", None) or {}
+    personagens = []
+    for linha in dados.get("personagens") or []:
+        linha = dict(linha)
+        linha["Nome"] = linha.pop("character_name", "")
+        personagens.append(linha)
+    nomes = {p.get("id"): p.get("Nome") for p in personagens}
+    saida = {"perfil": dados.get("perfil") or {}, "personagens": personagens}
+    for logica in ("pecas_void", "acessorios_titulo", "semanais"):
+        rotulos = ROTULOS_BOOLEANOS.get(logica)
+        linhas = []
+        for linha in dados.get(logica) or []:
+            linha = dict(linha)
+            linha["Nome"] = nomes.get(linha.get("character_id"), "")
+            if rotulos:
+                for chave, valor in list(linha.items()):
+                    if isinstance(valor, bool):
+                        linha[chave] = rotulos[1] if valor else rotulos[0]
+            linhas.append(linha)
+        saida[logica] = linhas
+    return saida
+
+
+def ranking_da_guilda(supabase: Client) -> dict:
+    """A guia Ranking (item 19, sql/ranking.sql): {"contas": [...],
+    "personagens": [...]} de TODAS as contas (so leitura)."""
+    resp = supabase.rpc("ranking_da_guilda", {}).execute()
+    dados = getattr(resp, "data", None) or {}
+    return {"contas": list(dados.get("contas") or []),
+            "personagens": list(dados.get("personagens") or [])}

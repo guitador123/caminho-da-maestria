@@ -4,9 +4,9 @@ Pagina "Evolucao semanal" na tela principal.
 
 Parte da tela principal (`GrandChaseApp` herda de `EvolucaoMixin`).
 
-  - o 9o cartao da grade ("EVOLUCAO SEMANAL") mostra a variacao do
-    Ataque Total medio na ultima semana e abre a pagina ao clicar;
-  - no 1o login depois do reset (quarta 03h) a pagina abre sozinha,
+  - a guia "Evolucao" (no topo, ver app_paginas.py) mostra a pagina; antes
+    era uma janela separada, aberta pelo 9o cartao da grade;
+  - no 1o login depois do reset (quarta 03h) a guia abre sozinha,
     destacando a semana que acabou (uma vez por reset, por conta).
 
 O historico vem do banco (user_historico_semanal) numa thread; a semana
@@ -36,74 +36,40 @@ class EvolucaoMixin:
         return (historico.de_historico(linhas), disponivel,
                 perfil.get("resumo_visto"))
 
-    # ---------------------------------------------------------- cartao ----
-    def _texto_cartao_evolucao(self):
-        """(valor, legenda) do 9o cartao."""
-        semanas = getattr(self, "_semanas_historico", None) or []
-        if len(semanas) >= 2:
-            dif, pct = historico.variacao(
-                historico.ataque_medio(semanas[-1]),
-                historico.ataque_medio(semanas[-2]))
-            if pct is not None:
-                sinal = "+" if pct >= 0 else "−"
-                valor = f"{sinal}{abs(pct):.1f}%".replace(".", ",")
-                return valor, "ataque médio na semana  ›"
-        if semanas:
-            return str(len(semanas)), "semana registrada  ›"
-        return "↗", "ver a evolução  ›"
-
-    def _atualizar_cartao_evolucao(self):
-        dados = getattr(self, "itens_valores", {}).get("evolucao")
-        if not dados:
-            return
-        valor, legenda = self._texto_cartao_evolucao()
-        item_valor, item_legenda, _x, _y = dados
-        try:
-            self.canvas.itemconfig(item_valor, text=valor)
-            if item_legenda is not None:
-                self.canvas.itemconfig(item_legenda, text=legenda)
-            self._posicionar_legenda("evolucao", valor)
-        except Exception:
-            falha("atualizar o cartao de evolucao")
-
     # ----------------------------------------------------------- abrir ----
     def abrir_evolucao(self, destaque=None):
-        """Abre a pagina (busca o historico em segundo plano)."""
+        """Vai para a guia Evolucao: mostra na hora com o historico que ja
+        tem e atualiza com o do banco em segundo plano."""
+        semanas = getattr(self, "_semanas_historico", None) or []
+        self._mostrar_evolucao(semanas, destaque)
         if not self.usar_supabase or getattr(self, "offline", False):
-            self._mostrar_evolucao(getattr(self, "_semanas_historico", None)
-                                   or [], destaque)
             return
-        self.status("Carregando a evolução semanal...")
+        self.status("Atualizando a evolução semanal...")
 
         def ao_terminar(ok, resultado):
-            semanas = []
             if ok and resultado:
-                semanas, disponivel, _visto = resultado
-                self._semanas_historico = semanas
-                self._atualizar_cartao_evolucao()
+                novas, disponivel, _visto = resultado
                 if not disponivel:
                     registrar("[Evolucao] historico ainda nao configurado "
                               "(rode sql/historico_semanal.sql)")
+                if novas != semanas:
+                    self._semanas_historico = novas
+                    self._mostrar_evolucao(novas, destaque)
+                self.status("Evolução semanal atualizada.")
             else:
                 self.status("Não deu para ler o histórico agora; mostrando "
-                            "só a semana atual.")
-            self._mostrar_evolucao(semanas, destaque)
+                            "o que já estava carregado.")
 
         self._em_segundo_plano(self._buscar_historico, ao_terminar)
 
     def _mostrar_evolucao(self, semanas, destaque):
-        janela = getattr(self, "_janela_evolucao", None)
+        """Monta a pagina e mostra a guia Evolucao."""
         try:
-            if janela is not None and janela.winfo_exists():
-                janela.fechar()
-        except Exception:
-            falha("fechar a evolucao anterior")
-        try:
-            from janela_evolucao import JanelaEvolucao
-            self._janela_evolucao = JanelaEvolucao(
-                self, semanas, self._semana_atual(), destaque=destaque,
-                nick=getattr(self, "perfil_nick", "") or "")
-            self.status("Evolução semanal aberta.")
+            pagina = self._pagina("evolucao")
+            pagina.definir(semanas, self._semana_atual(), destaque=destaque,
+                           nick=getattr(self, "perfil_nick", "") or "")
+            if self.pagina_atual != "evolucao":
+                self._mostrar_pagina("evolucao")
         except Exception as erro:
             falha("[Evolucao] abrir a pagina", erro)
             self.status(f"Erro ao abrir a evolução: {erro}")
@@ -111,7 +77,7 @@ class EvolucaoMixin:
     # ------------------------------------------- abertura automatica ----
     def _verificar_resumo_semanal(self):
         """Depois de carregar a conta: abre a pagina sozinha se houve um
-        reset que a conta ainda nao viu (e atualiza o 9o cartao)."""
+        reset que a conta ainda nao viu."""
         if (not self.usar_supabase or not self.user_id
                 or getattr(self, "offline", False)):
             return
@@ -121,7 +87,6 @@ class EvolucaoMixin:
                 return
             semanas, disponivel, visto = resultado
             self._semanas_historico = semanas
-            self._atualizar_cartao_evolucao()
             if not disponivel:
                 return
             destaque = historico.deve_mostrar(semanas, visto)

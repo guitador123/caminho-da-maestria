@@ -1,15 +1,16 @@
 """
-A pagina "Evolucao semanal" na tela de verdade.
+A guia "Evolucao" na tela de verdade.
 
 Valida (o historico do banco e SIMULADO: nada e gravado):
-  1. o 9o cartao "EVOLUCAO SEMANAL" existe e abre a pagina
-  2. a pagina tem as semanas do historico + a atual, e "Copiar imagem"
+  1. o 9o cartao "EVOLUCAO SEMANAL" NAO existe mais (virou a guia)
+  2. a guia mostra as semanas do historico + a atual, e "Copiar imagem"
      poe uma imagem na area de transferencia
   3. "Salvar PNG" grava o arquivo
-  4. 1o login depois do reset: abre sozinha destacando a semana que
-     acabou e marca como vista
+  4. 1o login depois do reset: a guia abre sozinha destacando a semana
+     que acabou e marca como vista
   5. depois de vista, NAO abre de novo
-  6. sem a tabela no banco (SQL nao rodado): nao abre e nao quebra
+  6. sem a tabela no banco (SQL nao rodado): nao abre sozinha e a guia
+     mostra so a semana atual
 
     python tests/integracao/teste_evolucao.py [email] [senha]
 """
@@ -23,7 +24,7 @@ from datetime import date
 
 import app_evolucao
 import auth
-import janela_evolucao
+import paginas
 from app_grandchase import GrandChaseApp
 from credenciais_teste import conta_teste
 
@@ -42,6 +43,12 @@ def _esperar(app, segundos=3.0):
     while time.time() < fim:
         app.update()
         time.sleep(0.03)
+
+
+def _na_evolucao(app):
+    pagina = getattr(app, "_paginas", {}).get("evolucao")
+    return (app.pagina_atual == "evolucao" and pagina is not None
+            and pagina.visivel())
 
 
 def main(argv):
@@ -69,69 +76,67 @@ def main(argv):
     app = GrandChaseApp(user=user, supabase=sb)
     # espera a abertura automatica (a 1a chamada ao banco pode demorar)
     fim = time.time() + 15
-    while time.time() < fim and getattr(app, "_janela_evolucao", None) is None:
+    while time.time() < fim and not _na_evolucao(app):
         _esperar(app, 0.2)
-    _esperar(app, 0.5)
+    _esperar(app, 0.8)
 
-    print("4) 1o login depois do reset: abre sozinha")
-    janela = getattr(app, "_janela_evolucao", None)
-    aberta = janela is not None and janela.winfo_exists()
+    print("4) 1o login depois do reset: a guia abre sozinha")
+    aberta = _na_evolucao(app)
     print(f"   abriu sozinha: {aberta} | marcada como vista: "
           f"{estado['marcados']}")
     if not aberta or estado["marcados"] != [date(2026, 11, 25)]:
         falhas.append("nao abriu sozinha / nao marcou como vista")
 
-    print("1) o 9o cartao")
-    valor, legenda = (app.canvas.itemcget(i, "text")
-                      for i in app.itens_valores["evolucao"][:2])
-    print(f"   cartao: {valor!r} {legenda!r}")
-    if "%" not in valor:
-        falhas.append("o cartao nao mostra a variacao do ataque medio")
-    if aberta:
-        janela.fechar()
-    app.abrir_evolucao()
-    _esperar(app, 2.0)
-    janela = app._janela_evolucao
-    if not janela.winfo_exists():
-        falhas.append("o cartao nao abriu a pagina")
+    print("1) o 9o cartao virou a guia")
+    if "evolucao" in app.itens_valores:
+        falhas.append("o 9o cartao ainda existe")
+    print(f"   cartoes: {len(app.itens_valores)}")
 
-    print("2) a pagina e o copiar")
-    print(f"   imagem: {janela.imagem.size}")
-    janela.copiar()
+    print("2) a guia e o copiar")
+    app.ir_para("maestria")
+    _esperar(app, 0.3)
+    app.ir_para("evolucao")
+    _esperar(app, 2.0)
+    pagina = app._paginas["evolucao"]
+    if not _na_evolucao(app):
+        falhas.append("a guia Evolucao nao abriu")
+    print(f"   imagem: {pagina.imagem.size}")
+    pagina.copiar()
     app.update()
-    print(f"   status: {janela.status.cget('text')!r}")
-    if "copiada" not in janela.status.cget("text").lower():
+    aviso = pagina.itemcget(pagina._aviso, "text")
+    print(f"   aviso: {aviso!r}")
+    if "copiada" not in aviso.lower():
         falhas.append("copiar imagem falhou")
 
     print("3) salvar PNG")
     destino = os.path.join(tempfile.mkdtemp(), "evolucao.png")
-    janela_evolucao.filedialog.asksaveasfilename = lambda **k: destino
-    janela.salvar_png()
+    paginas.filedialog.asksaveasfilename = lambda **k: destino
+    pagina.salvar_png()
     print(f"   arquivo: {os.path.exists(destino)} "
           f"({os.path.getsize(destino) if os.path.exists(destino) else 0} bytes)")
     if not os.path.exists(destino):
         falhas.append("salvar PNG nao gravou")
-    janela.fechar()
 
     print("5) depois de vista, nao abre de novo")
-    app._janela_evolucao = None
+    app.ir_para("maestria")
+    _esperar(app, 0.3)
     app._verificar_resumo_semanal()
     _esperar(app, 2.0)
-    if app._janela_evolucao is not None:
+    if app.pagina_atual != "maestria":
         falhas.append("abriu de novo depois de vista")
     print(f"   marcacoes: {len(estado['marcados'])} (continua 1)")
 
     print("6) sem a tabela no banco")
     estado.update(tabela=False, visto=None)
+    app._semanas_historico = []
     app._verificar_resumo_semanal()
     _esperar(app, 2.0)
-    if app._janela_evolucao is not None:
-        falhas.append("abriu sem a tabela")
-    app.abrir_evolucao()
+    if app.pagina_atual != "maestria":
+        falhas.append("abriu sozinha sem a tabela")
+    app.ir_para("evolucao")
     _esperar(app, 2.0)
-    if not app._janela_evolucao.winfo_exists():
-        falhas.append("sem a tabela, o cartao nao abriu a semana atual")
-    app._janela_evolucao.fechar()
+    if not _na_evolucao(app) or app._paginas["evolucao"].imagem is None:
+        falhas.append("sem a tabela, a guia nao mostrou a semana atual")
 
     app.destroy()
     if falhas:
