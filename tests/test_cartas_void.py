@@ -234,3 +234,13 @@ def test_mover_o_card_nao_estica_o_pontinho_da_pedra(raiz):
         assert x2 - x1 < 20 and y2 - y1 < 20         # continua um pontinho
     finally:
         canvas.destroy()
+
+
+def test_botas_e_calca_com_o_835_no_lugar_do_765():
+    for peca in ("botas", "calca"):
+        assert CARTAS_VOID[peca] == ["Ataque Especial +835",
+                                     "Ataque Especial +785",
+                                     "Ataque Especial +774",
+                                     "Ataque Especial +772", "Outra"]
+    # uma carta antiga (+765) ja salva continua contando como status
+    assert estado_da_carta("Ataque Especial +765") == "status"

@@ -273,12 +273,13 @@ CARTAS_VOID = {
               _CRITICO, "Dano Crítico +28,75%", CARTA_OUTRA],
     "cota": ["Ataque +555", "Ataque +530", "Ataque +515", "Ataque +507",
              CARTA_OUTRA],
-    "botas": ["Ataque Especial +785", "Ataque Especial +774",
-              "Ataque Especial +772", "Ataque Especial +765", CARTA_OUTRA],
+    # +835 entrou no lugar do +765 (27/11)
+    "botas": ["Ataque Especial +835", "Ataque Especial +785",
+              "Ataque Especial +774", "Ataque Especial +772", CARTA_OUTRA],
     "capa": ["Ataque +555", "Ataque +530", "Ataque +515", "Ataque +507",
              CARTA_OUTRA],
-    "calca": ["Ataque Especial +785", "Ataque Especial +774",
-              "Ataque Especial +772", "Ataque Especial +765", CARTA_OUTRA],
+    "calca": ["Ataque Especial +835", "Ataque Especial +785",
+              "Ataque Especial +774", "Ataque Especial +772", CARTA_OUTRA],
     "elmo": ["Ataque +100", CARTA_OUTRA],
 }
 # a ordem do card (a mesma da lista de pecas do card)
