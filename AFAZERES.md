@@ -134,7 +134,7 @@ Hoje são 42 scripts soltos que precisam de janela e de Supabase.
 
 ### 12. Visão da guilda
 - [ ] Ranking ou painel com o progresso semanal de todos (leitura entre membros via RLS)
-- [ ] **Ranking no Discord, atualizando sozinho** (plano de 27/11; implementar junto com a visão da guilda):
+- [x] **Ranking no Discord, atualizando sozinho** ✅ (no ar desde 27/11; configurado seguindo `supabase/functions/ranking-discord/LEIA-ME.md`): mensagem com 2 embeds (os 5 pódios e o campeão de cada personagem), as mesmas regras do app (conferido: campeões e pódios iguais); arquivos `sql/discord.sql`, `supabase/functions/ranking-discord/index.ts` e `sql/discord_agendar.sql`. Plano original:
   - Uma mensagem FIXA no canal, editada a cada atualização (nunca uma mensagem nova): ranking em embed, por exemplo "🥇 Ai · 1.203.651 · 7/7 dungeons"
   - Via webhook do canal (Editar canal → Integrações → Webhooks); o ID da mensagem fica guardado para editar sempre a mesma
   - **Roda no servidor, nunca no app:** uma Edge Function do Supabase monta o ranking do banco e edita a mensagem. A URL do webhook fica como segredo no Supabase (se fosse no `.exe`, qualquer um poderia tirar e mandar spam no canal)
