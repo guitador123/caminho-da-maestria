@@ -548,6 +548,9 @@ class PaginaConta(_PerfilMixin, PaginaBase):
         import guilda
         from card_personagem import CardPersonagem, LARGURA as CARD_LARGURA
         import caminhos
+        # solta as imagens da conta anterior (os itens ja foram apagados)
+        for card in self._cards:
+            card._fotos.clear()
         self._cards = []
         nome = guilda.nome_do_perfil(self.perfil)
         y = lay.y(TOPO_ABAS) + lay.f(34 + 8) + lay.f(20)

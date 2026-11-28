@@ -6,7 +6,7 @@ Parte da tela principal (`GrandChaseApp` herda de `SalvamentoMixin`).
 Separado do app_grandchase.py sem mudar o codigo dos metodos.
 """
 
-import gc
+import segundo_plano
 import pandas as pd
 import queue
 import threading
@@ -353,8 +353,7 @@ class SalvamentoMixin:
         # O GC nao pode rodar na thread de rede: ele pode finalizar um
         # tkinter.font.Font e travar o Tcl (GIL x Tcl). Desligamos durante o
         # envio e religamos na thread da UI.
-        gc.collect()
-        gc.disable()
+        segundo_plano.comecar()
         threading.Thread(target=self._salvar_em_segundo_plano,
                          args=(dados, originais), daemon=True).start()
 
@@ -383,9 +382,9 @@ class SalvamentoMixin:
 
     def _aplicar_resultado_salvamento(self, tipo, payload):
         """Aplica o resultado do salvamento (status + cards), sem messagebox."""
-        gc.enable()
+        # o gc so volta quando TODOS os trabalhos terminarem
         try:
-            gc.collect()
+            segundo_plano.terminar()
         except Exception:
             falha("coletar o lixo apos salvar")
 

@@ -10,7 +10,7 @@ salvamento. O GC fica desligado durante a thread (senao ele pode finalizar
 um objeto do Tk na thread de rede e travar o Tcl: GIL x Tcl).
 """
 
-import gc
+import segundo_plano
 import os
 import threading
 from tkinter import messagebox
@@ -106,10 +106,10 @@ class AtualizacaoMixin:
             if "ok" not in caixa:
                 self.after(150, conferir)
                 return
-            gc.enable()
+            # o gc so volta quando TODOS os trabalhos terminarem
+            segundo_plano.terminar()
             ao_terminar(caixa["ok"], caixa["valor"])
 
-        gc.collect()
-        gc.disable()
+        segundo_plano.comecar()
         threading.Thread(target=alvo, daemon=True).start()
         self.after(150, conferir)

@@ -43,6 +43,7 @@ SCRIPTS = [
     "teste_guias.py",
     "teste_guilda.py",
     "teste_ranking.py",
+    "teste_perfis_seguidos.py",
     "teste_missao_rapida.py",
     "teste_filtros.py",
     "teste_filtro_ao_vivo.py",

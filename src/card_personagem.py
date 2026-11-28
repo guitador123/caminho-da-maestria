@@ -170,6 +170,33 @@ RETRATOS_ATIVOS = {
 }
 
 
+# Imagens do Tk COMPARTILHADAS entre os cards. Cada PhotoImage ocupa um
+# bitmap do Windows (o limite e ~10.000 por programa): com 25 cards de
+# dezenas de imagens cada, abrir a conta de outra pessoa na Guilda passava
+# do limite e o Tk fechava o app ("Fail to allocate bitmap"). Quase tudo
+# no card se repete (quadradinhos, chips, paineis, o fundo): a mesma
+# imagem vira UM bitmap, reaproveitado por todos.
+LIMITE_FOTOS_COMPARTILHADAS = 1500
+
+
+def foto_compartilhada(widget, imagem):
+    """A PhotoImage de `imagem` (PIL), a mesma para imagens iguais."""
+    raiz = widget._root()
+    cache = getattr(raiz, "_cache_fotos_card", None)
+    if cache is None:
+        cache = {}
+        raiz._cache_fotos_card = cache
+    chave = (imagem.mode, imagem.size, hash(imagem.tobytes()))
+    foto = cache.get(chave)
+    if foto is None:
+        if len(cache) >= LIMITE_FOTOS_COMPARTILHADAS:
+            # quem ainda usa uma imagem guarda a propria referencia
+            cache.clear()
+        foto = ImageTk.PhotoImage(imagem, master=widget)
+        cache[chave] = foto
+    return foto
+
+
 # Cache dos retratos ja redimensionados (o resize com LANCZOS de 25 PNGs a
 # cada redesenho era o que travava a tela quando o filtro mudava).
 _CACHE_RETRATOS = {}
@@ -401,7 +428,7 @@ class CardPersonagem:
         return (familia, max(1, int(round(tamanho * self.s))), peso)
 
     def _img(self, chave, imagem):
-        foto = ImageTk.PhotoImage(imagem)
+        foto = foto_compartilhada(self.canvas, imagem)
         self._fotos[chave] = foto
         return foto
 
